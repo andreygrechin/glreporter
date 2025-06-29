@@ -1,0 +1,13 @@
+---
+name: cleanup-caches
+
+on:
+  pull_request:
+    types:
+      - closed
+
+jobs:
+  cleanup-caches:
+    permissions:
+      actions: write
+    uses: andreygrechin/github-actions/.github/workflows/cleanup-caches.yml@main

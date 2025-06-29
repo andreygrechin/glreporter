@@ -1,0 +1,15 @@
+---
+name: assign-author
+
+on:
+  issues:
+    types: [opened, reopened]
+  pull_request_target:
+    types: [opened, reopened]
+
+jobs:
+  assign-author:
+    permissions:
+      issues: write
+      pull-requests: write
+    uses: andreygrechin/github-actions/.github/workflows/assign-author.yml@main
