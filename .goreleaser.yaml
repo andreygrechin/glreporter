@@ -27,9 +27,9 @@ builds:
     ldflags:
       - -s
       - -w
-      - -X {{ .ModulePath }}/internal/config.Version={{ .Version }}
-      - -X {{ .ModulePath }}/internal/config.Commit={{ .Commit }}
-      - -X {{ .ModulePath }}/internal/config.BuildTime={{ .Date }}
+      - -X main.Version={{ .Version }}
+      - -X main.Commit={{ .Commit }}
+      - -X main.BuildTime={{ .Date }}
     ignore:
       - goos: windows
         goarch: arm64
