@@ -18,6 +18,18 @@ glreporter is the CLI tool to fetch information from GitLab groups and projects.
 go install github.com/andreygrechin/glreporter@latest
 ```
 
+### Homebrew tap
+
+You may also install the latest version of glreporter using the Homebrew tap:
+
+```shell
+brew install andreygrechin/tap/glreporter
+
+# to update, run
+brew update
+brew upgrade glreporter
+```
+
 ### Manually
 
 Download the pre-compiled binaries from [the releases page](https://github.com/andreygrechin/glreporter/releases/) and copy them to a desired location.
