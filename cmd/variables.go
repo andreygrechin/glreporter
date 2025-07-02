@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/andreygrechin/glreporter/internal/glclient"
@@ -24,7 +23,7 @@ var VariablesCmd = &cobra.Command{
 var variablesProjectID string
 
 func init() {
-	VariablesCmd.PersistentFlags().IntVar(&groupID, "group-id", 0,
+	VariablesCmd.PersistentFlags().StringVar(&groupID, "group-id", "",
 		"The ID of the GitLab group to fetch variables from recursively "+
 			"(optional, fetches from all accessible groups if neither group-id nor project-id is provided)")
 	VariablesCmd.PersistentFlags().StringVar(&variablesProjectID, "project-id", "",
@@ -74,7 +73,7 @@ func runVariables(_ *cobra.Command, _ []string) error {
 }
 
 func validateVariablesParameters() error {
-	if groupID != 0 && variablesProjectID != "" {
+	if groupID != "" && variablesProjectID != "" {
 		return ErrBothGroupIDAndProjectIDProvided
 	}
 
@@ -89,12 +88,7 @@ func fetchVariables(client *glclient.Client) ([]*glclient.ProjectVariableWithPro
 
 	if variablesProjectID != "" {
 		// Single project
-		pid, err := strconv.Atoi(variablesProjectID)
-		if err != nil {
-			return nil, fmt.Errorf("invalid project ID: %w", err)
-		}
-
-		variables, err = client.GetProjectVariables(pid)
+		variables, err = client.GetProjectVariables(variablesProjectID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch variables: %w", err)
 		}

@@ -11,11 +11,11 @@ var tokensCmd = &cobra.Command{
 }
 
 func init() {
-	tokensCmd.PersistentFlags().IntVar(&groupID, "group-id", 0,
+	tokensCmd.PersistentFlags().StringVar(&groupID, "group-id", "",
 		"The ID of a GitLab group to start the search from "+
 			"(optional for pat/ptt, fetches from all accessible groups if neither group-id nor project-id is provided).")
 
-	tokensCmd.PersistentFlags().IntVar(&projectID, "project-id", 0,
+	tokensCmd.PersistentFlags().StringVar(&projectID, "project-id", "",
 		"Project ID to fetch tokens for.")
 
 	RootCmd.AddCommand(tokensCmd)

@@ -9,3 +9,4 @@ covdatafiles/
 
 vendor/
 coverage.out
+.vscode/launch.json

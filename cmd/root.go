@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	groupID   int
-	projectID int
+	groupID   string
+	projectID string
 	format    string
 	token     string
 	debug     bool
@@ -66,7 +66,7 @@ func IsDebugEnabled() bool {
 
 // runReportCommand is a generic function to handle common logic for fetching and formatting data.
 func runReportCommand[T any](
-	fetchFunc func(client *glclient.Client, groupID int) ([]T, error),
+	fetchFunc func(client *glclient.Client, groupID string) ([]T, error),
 	formatFunc func(formatter output.Formatter, data []T) error,
 	tokenErr error,
 	spinnerSuffix string,

@@ -10,14 +10,14 @@ import (
 var projectsCmd = &cobra.Command{
 	Use:   "projects",
 	Short: "Fetches and displays information about projects",
-	Long: `Fetches and displays information about GitLab projects. If a group ID is provided, 
-it will fetch all projects from that group and its subgroups. 
+	Long: `Fetches and displays information about GitLab projects. If a group ID is provided,
+it will fetch all projects from that group and its subgroups.
 If no group ID is provided, it will fetch projects from all accessible groups.`,
 	RunE: runProjects,
 }
 
 func init() {
-	projectsCmd.PersistentFlags().IntVar(&groupID, "group-id", 0,
+	projectsCmd.PersistentFlags().StringVar(&groupID, "group-id", "",
 		"The ID of the top-level GitLab group to start the search from "+
 			"(optional, fetches from all accessible groups if not provided)")
 
@@ -26,7 +26,7 @@ func init() {
 
 func runProjects(_ *cobra.Command, _ []string) error {
 	return runReportCommand(
-		func(client *glclient.Client, groupID int) ([]*gitlab.Project, error) {
+		func(client *glclient.Client, groupID string) ([]*gitlab.Project, error) {
 			return client.GetProjectsRecursively(groupID)
 		},
 		func(formatter output.Formatter, data []*gitlab.Project) error {
