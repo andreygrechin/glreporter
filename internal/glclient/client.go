@@ -84,7 +84,7 @@ func NewClientWithGitLabClient(gitlabClient *gitlab.Client, debug bool) *Client 
 }
 
 // GetGroupsRecursively fetches all groups and their subgroups starting from a given group ID.
-// If groupID is 0, it fetches all accessible groups.
+// If groupID is negative, return an error.
 func (c *Client) GetGroupsRecursively(groupID int) ([]*gitlab.Group, error) {
 	if groupID < 0 {
 		return nil, fmt.Errorf("%w: %d", ErrInvalidGroupID, groupID)

@@ -109,7 +109,7 @@ glreporter tokens ptt --project-id <project-id>
 --include-inactive            # Include inactive tokens in output (token commands only)
 ```
 
-**Note**: For token commands, use either `--group-id` (to fetch from all projects in a group) or `--project-id` (to fetch from a specific project), but not both.
+**Note**: For token commands, use either `--group-id` (to fetch from all projects in a group) or `--project-id` (to fetch from a specific project), but not both. If neither is provided, the command will fetch tokens from all accessible groups or projects.
 
 ### Output Formats
 
