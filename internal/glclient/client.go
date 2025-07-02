@@ -1,7 +1,6 @@
 package glclient
 
 import (
-	"errors"
 	"fmt"
 	"net/url"
 	"sort"
@@ -11,9 +10,6 @@ import (
 	"github.com/andreygrechin/glreporter/internal/worker"
 	gitlab "gitlab.com/gitlab-org/api/client-go"
 )
-
-// ErrInvalidGroupID is returned when an invalid group ID is provided.
-var ErrInvalidGroupID = errors.New("invalid group ID")
 
 // GroupAccessTokenWithGroup represents a group access token with associated group information.
 type GroupAccessTokenWithGroup struct {
@@ -407,8 +403,7 @@ func (c *Client) GetProjectVariables(projectID string) ([]*ProjectVariableWithPr
 	}
 
 	// First, get the project information
-	encodedURL := url.QueryEscape(projectID)
-	project, _, err := c.client.Projects.GetProject(encodedURL, nil)
+	project, _, err := c.client.Projects.GetProject(url.QueryEscape(projectID), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get project %s: %w", projectID, err)
 	}
@@ -773,9 +768,6 @@ func (c *Client) listVariablesForProject(
 	}
 
 	for {
-		fmt.Printf("DEBUG: fetching variables for project %s\n", projectID)
-		fmt.Printf("DEBUG: URL-encoded project ID: %s\n", url.QueryEscape(projectID))
-
 		variables, resp, err := c.client.ProjectVariables.ListVariables(url.QueryEscape(projectID), opt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list project variables: %w", err)

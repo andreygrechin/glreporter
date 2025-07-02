@@ -3,6 +3,7 @@ package glclient_test
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -60,11 +61,11 @@ func TestGetGroupsRecursively(t *testing.T) {
 		}
 
 		mockClient.MockGroups.EXPECT().
-			GetGroup(1, nil).
+			GetGroup("1", nil).
 			Return(rootGroup, &gitlab.Response{}, nil)
 
 		mockClient.MockGroups.EXPECT().
-			ListSubGroups(1, gomock.Any()).
+			ListSubGroups("1", gomock.Any()).
 			Return([]*gitlab.Group{}, &gitlab.Response{}, nil)
 
 		groups, err := client.GetGroupsRecursively("1")
@@ -106,27 +107,27 @@ func TestGetGroupsRecursively(t *testing.T) {
 
 		// Root group
 		mockClient.MockGroups.EXPECT().
-			GetGroup(1, nil).
+			GetGroup("1", nil).
 			Return(rootGroup, &gitlab.Response{}, nil)
 
 		// Subgroups of root
 		mockClient.MockGroups.EXPECT().
-			ListSubGroups(1, gomock.Any()).
+			ListSubGroups("1", gomock.Any()).
 			Return([]*gitlab.Group{subGroup1, subGroup2}, &gitlab.Response{}, nil)
 
 		// Subgroups of subGroup1
 		mockClient.MockGroups.EXPECT().
-			ListSubGroups(2, gomock.Any()).
+			ListSubGroups("2", gomock.Any()).
 			Return([]*gitlab.Group{nestedSubGroup}, &gitlab.Response{}, nil)
 
 		// Subgroups of subGroup2 (empty)
 		mockClient.MockGroups.EXPECT().
-			ListSubGroups(3, gomock.Any()).
+			ListSubGroups("3", gomock.Any()).
 			Return([]*gitlab.Group{}, &gitlab.Response{}, nil)
 
 		// Subgroups of nestedSubGroup (empty)
 		mockClient.MockGroups.EXPECT().
-			ListSubGroups(4, gomock.Any()).
+			ListSubGroups("4", gomock.Any()).
 			Return([]*gitlab.Group{}, &gitlab.Response{}, nil)
 
 		groups, err := client.GetGroupsRecursively("1")
@@ -175,25 +176,25 @@ func TestGetGroupsRecursively(t *testing.T) {
 		}
 
 		mockClient.MockGroups.EXPECT().
-			GetGroup(1, nil).
+			GetGroup("1", nil).
 			Return(rootGroup, &gitlab.Response{}, nil)
 
 		// First page
 		mockClient.MockGroups.EXPECT().
-			ListSubGroups(1, gomock.Any()).
+			ListSubGroups("1", gomock.Any()).
 			Return(page1Groups, &gitlab.Response{NextPage: 2}, nil).
 			Times(1)
 
 		// Second page
 		mockClient.MockGroups.EXPECT().
-			ListSubGroups(1, gomock.Any()).
+			ListSubGroups("1", gomock.Any()).
 			Return(page2Groups, &gitlab.Response{}, nil).
 			Times(1)
 
 		// Each subgroup has no children
 		for i := 2; i <= 75; i++ {
 			mockClient.MockGroups.EXPECT().
-				ListSubGroups(i, gomock.Any()).
+				ListSubGroups(strconv.Itoa(i), gomock.Any()).
 				Return([]*gitlab.Group{}, &gitlab.Response{}, nil).
 				AnyTimes()
 		}
@@ -203,7 +204,7 @@ func TestGetGroupsRecursively(t *testing.T) {
 		assert.Len(t, groups, 75) // 1 root + 74 subgroups
 	})
 
-	t.Run("fetches all groups when group ID is 0", func(t *testing.T) {
+	t.Run("fetches all groups when group ID is empty", func(t *testing.T) {
 		client, mockClient := testClient(t)
 
 		allGroups := []*gitlab.Group{
@@ -220,7 +221,7 @@ func TestGetGroupsRecursively(t *testing.T) {
 			}).
 			Return(allGroups, &gitlab.Response{}, nil)
 
-		groups, err := client.GetGroupsRecursively("0")
+		groups, err := client.GetGroupsRecursively("")
 		require.NoError(t, err)
 		assert.Len(t, groups, 2)
 		assert.Equal(t, allGroups, groups)
@@ -230,7 +231,7 @@ func TestGetGroupsRecursively(t *testing.T) {
 		client, mockClient := testClient(t)
 
 		mockClient.MockGroups.EXPECT().
-			GetGroup(1, nil).
+			GetGroup("1", nil).
 			Return(nil, nil, errAPI)
 
 		groups, err := client.GetGroupsRecursively("1")
@@ -328,11 +329,11 @@ func TestGetProjectsRecursively(t *testing.T) {
 
 		// Groups setup
 		mockClient.MockGroups.EXPECT().
-			GetGroup(1, nil).
+			GetGroup("1", nil).
 			Return(rootGroup, &gitlab.Response{}, nil)
 
 		mockClient.MockGroups.EXPECT().
-			ListSubGroups(1, gomock.Any()).
+			ListSubGroups("1", gomock.Any()).
 			Return([]*gitlab.Group{}, &gitlab.Response{}, nil)
 
 		// Projects setup
@@ -378,15 +379,15 @@ func TestGetProjectsRecursively(t *testing.T) {
 
 		// Groups setup
 		mockClient.MockGroups.EXPECT().
-			GetGroup(1, nil).
+			GetGroup("1", nil).
 			Return(rootGroup, &gitlab.Response{}, nil)
 
 		mockClient.MockGroups.EXPECT().
-			ListSubGroups(1, gomock.Any()).
+			ListSubGroups("1", gomock.Any()).
 			Return([]*gitlab.Group{subGroup}, &gitlab.Response{}, nil)
 
 		mockClient.MockGroups.EXPECT().
-			ListSubGroups(2, gomock.Any()).
+			ListSubGroups("2", gomock.Any()).
 			Return([]*gitlab.Group{}, &gitlab.Response{}, nil)
 
 		// Projects setup
@@ -422,11 +423,11 @@ func TestGetProjectsRecursively(t *testing.T) {
 		}
 
 		mockClient.MockGroups.EXPECT().
-			GetGroup(1, nil).
+			GetGroup("1", nil).
 			Return(rootGroup, &gitlab.Response{}, nil)
 
 		mockClient.MockGroups.EXPECT().
-			ListSubGroups(1, gomock.Any()).
+			ListSubGroups("1", gomock.Any()).
 			Return([]*gitlab.Group{}, &gitlab.Response{}, nil)
 
 		mockClient.MockGroups.EXPECT().
@@ -474,12 +475,12 @@ func TestGetGroupAccessTokens(t *testing.T) {
 		}
 
 		mockClient.MockGroups.EXPECT().
-			GetGroup(1, nil).
+			GetGroup("1", nil).
 			Return(group, &gitlab.Response{}, nil)
 
 		activeState := gitlab.AccessTokenState("active")
 		mockClient.MockGroupAccessTokens.EXPECT().
-			ListGroupAccessTokens(1, &gitlab.ListGroupAccessTokensOptions{
+			ListGroupAccessTokens("1", &gitlab.ListGroupAccessTokensOptions{
 				ListOptions: gitlab.ListOptions{PerPage: 50, Page: 1},
 				State:       &activeState,
 			}).
@@ -525,11 +526,11 @@ func TestGetGroupAccessTokens(t *testing.T) {
 		}
 
 		mockClient.MockGroups.EXPECT().
-			GetGroup(1, nil).
+			GetGroup("1", nil).
 			Return(group, &gitlab.Response{}, nil)
 
 		mockClient.MockGroupAccessTokens.EXPECT().
-			ListGroupAccessTokens(1, &gitlab.ListGroupAccessTokensOptions{
+			ListGroupAccessTokens("1", &gitlab.ListGroupAccessTokensOptions{
 				ListOptions: gitlab.ListOptions{PerPage: 50, Page: 1},
 			}).
 			Return([]*gitlab.GroupAccessToken{activeToken, inactiveToken}, &gitlab.Response{}, nil)
@@ -539,12 +540,16 @@ func TestGetGroupAccessTokens(t *testing.T) {
 		assert.Len(t, tokens, 2)
 	})
 
-	t.Run("handles invalid group ID", func(t *testing.T) {
-		client, _ := testClient(t)
+	t.Run("handles API error when getting group", func(t *testing.T) {
+		client, mockClient := testClient(t)
 
-		tokens, err := client.GetGroupAccessTokens("", false)
+		mockClient.MockGroups.EXPECT().
+			GetGroup("invalid-id", nil).
+			Return(nil, nil, errAPI)
+
+		tokens, err := client.GetGroupAccessTokens("invalid-id", false)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "invalid group ID")
+		assert.Contains(t, err.Error(), "failed to get group info")
 		assert.Nil(t, tokens)
 	})
 }
@@ -587,29 +592,29 @@ func TestGetGroupAccessTokensRecursively(t *testing.T) {
 
 		// Groups setup
 		mockClient.MockGroups.EXPECT().
-			GetGroup(1, nil).
+			GetGroup("1", nil).
 			Return(rootGroup, &gitlab.Response{}, nil)
 
 		mockClient.MockGroups.EXPECT().
-			ListSubGroups(1, gomock.Any()).
+			ListSubGroups("1", gomock.Any()).
 			Return([]*gitlab.Group{subGroup}, &gitlab.Response{}, nil)
 
 		mockClient.MockGroups.EXPECT().
-			ListSubGroups(2, gomock.Any()).
+			ListSubGroups("2", gomock.Any()).
 			Return([]*gitlab.Group{}, &gitlab.Response{}, nil)
 
 		// Tokens setup
 		activeState := gitlab.AccessTokenState("active")
 
 		mockClient.MockGroupAccessTokens.EXPECT().
-			ListGroupAccessTokens(1, &gitlab.ListGroupAccessTokensOptions{
+			ListGroupAccessTokens("1", &gitlab.ListGroupAccessTokensOptions{
 				ListOptions: gitlab.ListOptions{PerPage: 50, Page: 1},
 				State:       &activeState,
 			}).
 			Return([]*gitlab.GroupAccessToken{rootToken}, &gitlab.Response{}, nil)
 
 		mockClient.MockGroupAccessTokens.EXPECT().
-			ListGroupAccessTokens(2, &gitlab.ListGroupAccessTokensOptions{
+			ListGroupAccessTokens("2", &gitlab.ListGroupAccessTokensOptions{
 				ListOptions: gitlab.ListOptions{PerPage: 50, Page: 1},
 				State:       &activeState,
 			}).
@@ -652,12 +657,12 @@ func TestGetProjectAccessTokens(t *testing.T) {
 		}
 
 		mockClient.MockProjects.EXPECT().
-			GetProject(1, nil).
+			GetProject("1", nil).
 			Return(project, &gitlab.Response{}, nil)
 
 		activeState := "active"
 		mockClient.MockProjectAccessTokens.EXPECT().
-			ListProjectAccessTokens(1, &gitlab.ListProjectAccessTokensOptions{
+			ListProjectAccessTokens("1", &gitlab.ListProjectAccessTokensOptions{
 				ListOptions: gitlab.ListOptions{PerPage: 50, Page: 1},
 				State:       &activeState,
 			}).
@@ -706,12 +711,12 @@ func TestGetProjectAccessTokens(t *testing.T) {
 		}
 
 		mockClient.MockProjects.EXPECT().
-			GetProject(1, nil).
+			GetProject("1", nil).
 			Return(project, &gitlab.Response{}, nil)
 
 		activeState := "active"
 		mockClient.MockProjectAccessTokens.EXPECT().
-			ListProjectAccessTokens(1, &gitlab.ListProjectAccessTokensOptions{
+			ListProjectAccessTokens("1", &gitlab.ListProjectAccessTokensOptions{
 				ListOptions: gitlab.ListOptions{PerPage: 50, Page: 1},
 				State:       &activeState,
 			}).
@@ -770,11 +775,11 @@ func TestGetProjectAccessTokensRecursively(t *testing.T) {
 
 		// Groups setup
 		mockClient.MockGroups.EXPECT().
-			GetGroup(1, nil).
+			GetGroup("1", nil).
 			Return(rootGroup, &gitlab.Response{}, nil)
 
 		mockClient.MockGroups.EXPECT().
-			ListSubGroups(1, gomock.Any()).
+			ListSubGroups("1", gomock.Any()).
 			Return([]*gitlab.Group{}, &gitlab.Response{}, nil)
 
 		// Projects setup
@@ -786,14 +791,14 @@ func TestGetProjectAccessTokensRecursively(t *testing.T) {
 		activeState := "active"
 
 		mockClient.MockProjectAccessTokens.EXPECT().
-			ListProjectAccessTokens(1, &gitlab.ListProjectAccessTokensOptions{
+			ListProjectAccessTokens("1", &gitlab.ListProjectAccessTokensOptions{
 				ListOptions: gitlab.ListOptions{PerPage: 50, Page: 1},
 				State:       &activeState,
 			}).
 			Return([]*gitlab.ProjectAccessToken{token1}, &gitlab.Response{}, nil)
 
 		mockClient.MockProjectAccessTokens.EXPECT().
-			ListProjectAccessTokens(2, &gitlab.ListProjectAccessTokensOptions{
+			ListProjectAccessTokens("2", &gitlab.ListProjectAccessTokensOptions{
 				ListOptions: gitlab.ListOptions{PerPage: 50, Page: 1},
 				State:       &activeState,
 			}).
@@ -813,10 +818,10 @@ func TestGetProjectAccessTokensRecursively(t *testing.T) {
 		assert.True(t, tokensByProject["root-group/project-2"])
 	})
 
-	t.Run("fetches tokens from all accessible groups when group ID is 0", func(t *testing.T) {
+	t.Run("fetches tokens from all accessible groups when group ID is empty", func(t *testing.T) {
 		client, mockClient := testClient(t)
 
-		// Mock GetAllGroups for GetGroupsRecursively("0")
+		// Mock GetAllGroups for GetGroupsRecursively("")
 		allGroups := []*gitlab.Group{
 			{ID: 1, Name: "Group 1", FullPath: "group1"},
 		}
@@ -832,7 +837,7 @@ func TestGetProjectAccessTokensRecursively(t *testing.T) {
 
 		// No subgroups
 		mockClient.MockGroups.EXPECT().
-			ListSubGroups(1, gomock.Any()).
+			ListSubGroups("1", gomock.Any()).
 			Return([]*gitlab.Group{}, &gitlab.Response{}, nil).
 			AnyTimes()
 
@@ -852,7 +857,7 @@ func TestGetProjectAccessTokensRecursively(t *testing.T) {
 		// No tokens for this project
 		activeState := "active"
 		mockClient.MockProjectAccessTokens.EXPECT().
-			ListProjectAccessTokens(10, &gitlab.ListProjectAccessTokensOptions{
+			ListProjectAccessTokens("10", &gitlab.ListProjectAccessTokensOptions{
 				ListOptions: gitlab.ListOptions{PerPage: 50, Page: 1},
 				State:       &activeState,
 			}).
@@ -889,11 +894,11 @@ func TestGetPipelineTriggers(t *testing.T) {
 		}
 
 		mockClient.MockProjects.EXPECT().
-			GetProject(1, nil).
+			GetProject("1", nil).
 			Return(project, &gitlab.Response{}, nil)
 
 		mockClient.MockPipelineTriggers.EXPECT().
-			ListPipelineTriggers(1, &gitlab.ListPipelineTriggersOptions{
+			ListPipelineTriggers("1", &gitlab.ListPipelineTriggersOptions{
 				PerPage: 50,
 				Page:    1,
 			}).
@@ -923,11 +928,11 @@ func TestGetPipelineTriggers(t *testing.T) {
 		}
 
 		mockClient.MockProjects.EXPECT().
-			GetProject(1, nil).
+			GetProject("1", nil).
 			Return(project, &gitlab.Response{}, nil)
 
 		mockClient.MockPipelineTriggers.EXPECT().
-			ListPipelineTriggers(1, gomock.Any()).
+			ListPipelineTriggers("1", gomock.Any()).
 			Return([]*gitlab.PipelineTrigger{}, &gitlab.Response{}, nil)
 
 		triggers, err := client.GetPipelineTriggers("1")
@@ -974,11 +979,11 @@ func TestGetPipelineTriggersRecursively(t *testing.T) {
 
 		// Groups setup
 		mockClient.MockGroups.EXPECT().
-			GetGroup(1, nil).
+			GetGroup("1", nil).
 			Return(rootGroup, &gitlab.Response{}, nil)
 
 		mockClient.MockGroups.EXPECT().
-			ListSubGroups(1, gomock.Any()).
+			ListSubGroups("1", gomock.Any()).
 			Return([]*gitlab.Group{}, &gitlab.Response{}, nil)
 
 		// Projects setup
@@ -988,11 +993,11 @@ func TestGetPipelineTriggersRecursively(t *testing.T) {
 
 		// Pipeline triggers
 		mockClient.MockPipelineTriggers.EXPECT().
-			ListPipelineTriggers(1, gomock.Any()).
+			ListPipelineTriggers("1", gomock.Any()).
 			Return([]*gitlab.PipelineTrigger{trigger1}, &gitlab.Response{}, nil)
 
 		mockClient.MockPipelineTriggers.EXPECT().
-			ListPipelineTriggers(2, gomock.Any()).
+			ListPipelineTriggers("2", gomock.Any()).
 			Return([]*gitlab.PipelineTrigger{trigger2}, &gitlab.Response{}, nil)
 
 		triggers, err := client.GetPipelineTriggersRecursively("1")
@@ -1027,11 +1032,11 @@ func TestGetPipelineTriggersRecursively(t *testing.T) {
 
 		// Groups setup
 		mockClient.MockGroups.EXPECT().
-			GetGroup(1, nil).
+			GetGroup("1", nil).
 			Return(rootGroup, &gitlab.Response{}, nil)
 
 		mockClient.MockGroups.EXPECT().
-			ListSubGroups(1, gomock.Any()).
+			ListSubGroups("1", gomock.Any()).
 			Return([]*gitlab.Group{}, &gitlab.Response{}, nil)
 
 		// Projects setup
@@ -1041,7 +1046,7 @@ func TestGetPipelineTriggersRecursively(t *testing.T) {
 
 		// No triggers
 		mockClient.MockPipelineTriggers.EXPECT().
-			ListPipelineTriggers(1, gomock.Any()).
+			ListPipelineTriggers("1", gomock.Any()).
 			Return([]*gitlab.PipelineTrigger{}, &gitlab.Response{}, nil)
 
 		triggers, err := client.GetPipelineTriggersRecursively("1")
@@ -1084,11 +1089,11 @@ func TestGetProjectVariables(t *testing.T) {
 
 		// Mock expectations
 		mockClient.MockProjects.EXPECT().
-			GetProject(10, nil).
+			GetProject("10", nil).
 			Return(project, &gitlab.Response{}, nil)
 
 		mockClient.MockProjectVariables.EXPECT().
-			ListVariables(10, gomock.Any()).
+			ListVariables("10", gomock.Any()).
 			Return([]*gitlab.ProjectVariable{variable1, variable2}, &gitlab.Response{}, nil)
 
 		// Execute
@@ -1122,7 +1127,7 @@ func TestGetProjectVariables(t *testing.T) {
 		client, mockClient := testClient(t)
 
 		mockClient.MockProjects.EXPECT().
-			GetProject(10, nil).
+			GetProject("10", nil).
 			Return(nil, nil, errAPI)
 
 		variables, err := client.GetProjectVariables("10")
@@ -1145,11 +1150,11 @@ func TestGetProjectVariables(t *testing.T) {
 		}
 
 		mockClient.MockProjects.EXPECT().
-			GetProject(10, nil).
+			GetProject("10", nil).
 			Return(project, &gitlab.Response{}, nil)
 
 		mockClient.MockProjectVariables.EXPECT().
-			ListVariables(10, gomock.Any()).
+			ListVariables("10", gomock.Any()).
 			Return([]*gitlab.ProjectVariable{}, &gitlab.Response{}, nil)
 
 		variables, err := client.GetProjectVariables("10")
@@ -1210,11 +1215,11 @@ func TestGetProjectVariablesRecursively(t *testing.T) {
 
 		// Mock expectations
 		mockClient.MockGroups.EXPECT().
-			GetGroup(1, nil).
+			GetGroup("1", nil).
 			Return(rootGroup, &gitlab.Response{}, nil)
 
 		mockClient.MockGroups.EXPECT().
-			ListSubGroups(1, gomock.Any()).
+			ListSubGroups("1", gomock.Any()).
 			Return([]*gitlab.Group{}, &gitlab.Response{}, nil)
 
 		mockClient.MockGroups.EXPECT().
@@ -1223,12 +1228,12 @@ func TestGetProjectVariablesRecursively(t *testing.T) {
 
 		// Project 1 variables
 		mockClient.MockProjectVariables.EXPECT().
-			ListVariables(10, gomock.Any()).
+			ListVariables("10", gomock.Any()).
 			Return([]*gitlab.ProjectVariable{var1}, &gitlab.Response{}, nil)
 
 		// Project 2 variables
 		mockClient.MockProjectVariables.EXPECT().
-			ListVariables(11, gomock.Any()).
+			ListVariables("11", gomock.Any()).
 			Return([]*gitlab.ProjectVariable{var2}, &gitlab.Response{}, nil)
 
 		// Execute
@@ -1262,7 +1267,7 @@ func TestGetProjectVariablesRecursively(t *testing.T) {
 		client, mockClient := testClient(t)
 
 		mockClient.MockGroups.EXPECT().
-			GetGroup(1, nil).
+			GetGroup("1", nil).
 			Return(nil, nil, errAPI)
 
 		variables, err := client.GetProjectVariablesRecursively("1")
@@ -1312,11 +1317,11 @@ func TestGetProjectVariablesRecursively(t *testing.T) {
 
 		// Mock expectations
 		mockClient.MockGroups.EXPECT().
-			GetGroup(1, nil).
+			GetGroup("1", nil).
 			Return(rootGroup, &gitlab.Response{}, nil)
 
 		mockClient.MockGroups.EXPECT().
-			ListSubGroups(1, gomock.Any()).
+			ListSubGroups("1", gomock.Any()).
 			Return([]*gitlab.Group{}, &gitlab.Response{}, nil)
 
 		mockClient.MockGroups.EXPECT().
@@ -1325,12 +1330,12 @@ func TestGetProjectVariablesRecursively(t *testing.T) {
 
 		// Project 1 fails to get variables
 		mockClient.MockProjectVariables.EXPECT().
-			ListVariables(10, gomock.Any()).
+			ListVariables("10", gomock.Any()).
 			Return(nil, nil, errAPI)
 
 		// Project 2 succeeds
 		mockClient.MockProjectVariables.EXPECT().
-			ListVariables(11, gomock.Any()).
+			ListVariables("11", gomock.Any()).
 			Return([]*gitlab.ProjectVariable{var2}, &gitlab.Response{}, nil)
 
 		// Execute
@@ -1354,11 +1359,11 @@ func TestDebugMode(t *testing.T) {
 		}
 
 		mockClient.MockGroups.EXPECT().
-			GetGroup(1, nil).
+			GetGroup("1", nil).
 			Return(rootGroup, &gitlab.Response{}, nil)
 
 		mockClient.MockGroups.EXPECT().
-			ListSubGroups(1, gomock.Any()).
+			ListSubGroups("1", gomock.Any()).
 			Return([]*gitlab.Group{}, &gitlab.Response{}, nil)
 
 		groups, err := client.GetGroupsRecursively("1")
