@@ -67,7 +67,7 @@ func TestGetGroupsRecursively(t *testing.T) {
 			ListSubGroups(1, gomock.Any()).
 			Return([]*gitlab.Group{}, &gitlab.Response{}, nil)
 
-		groups, err := client.GetGroupsRecursively(1)
+		groups, err := client.GetGroupsRecursively("1")
 		require.NoError(t, err)
 		assert.Len(t, groups, 1)
 		assert.Equal(t, rootGroup, groups[0])
@@ -129,7 +129,7 @@ func TestGetGroupsRecursively(t *testing.T) {
 			ListSubGroups(4, gomock.Any()).
 			Return([]*gitlab.Group{}, &gitlab.Response{}, nil)
 
-		groups, err := client.GetGroupsRecursively(1)
+		groups, err := client.GetGroupsRecursively("1")
 		require.NoError(t, err)
 		assert.Len(t, groups, 4)
 
@@ -198,7 +198,7 @@ func TestGetGroupsRecursively(t *testing.T) {
 				AnyTimes()
 		}
 
-		groups, err := client.GetGroupsRecursively(1)
+		groups, err := client.GetGroupsRecursively("1")
 		require.NoError(t, err)
 		assert.Len(t, groups, 75) // 1 root + 74 subgroups
 	})
@@ -220,19 +220,10 @@ func TestGetGroupsRecursively(t *testing.T) {
 			}).
 			Return(allGroups, &gitlab.Response{}, nil)
 
-		groups, err := client.GetGroupsRecursively(0)
+		groups, err := client.GetGroupsRecursively("0")
 		require.NoError(t, err)
 		assert.Len(t, groups, 2)
 		assert.Equal(t, allGroups, groups)
-	})
-
-	t.Run("handles invalid negative group ID", func(t *testing.T) {
-		client, _ := testClient(t)
-
-		groups, err := client.GetGroupsRecursively(-1)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "invalid group ID")
-		assert.Nil(t, groups)
 	})
 
 	t.Run("handles API error", func(t *testing.T) {
@@ -242,7 +233,7 @@ func TestGetGroupsRecursively(t *testing.T) {
 			GetGroup(1, nil).
 			Return(nil, nil, errAPI)
 
-		groups, err := client.GetGroupsRecursively(1)
+		groups, err := client.GetGroupsRecursively("1")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to get root group")
 		assert.Nil(t, groups)
@@ -349,7 +340,7 @@ func TestGetProjectsRecursively(t *testing.T) {
 			ListGroupProjects(1, gomock.Any()).
 			Return([]*gitlab.Project{project1, project2}, &gitlab.Response{}, nil)
 
-		projects, err := client.GetProjectsRecursively(1)
+		projects, err := client.GetProjectsRecursively("1")
 		require.NoError(t, err)
 		assert.Len(t, projects, 2)
 		assert.Equal(t, project1, projects[0])
@@ -407,7 +398,7 @@ func TestGetProjectsRecursively(t *testing.T) {
 			ListGroupProjects(2, gomock.Any()).
 			Return([]*gitlab.Project{subProject}, &gitlab.Response{}, nil)
 
-		projects, err := client.GetProjectsRecursively(1)
+		projects, err := client.GetProjectsRecursively("1")
 		require.NoError(t, err)
 		assert.Len(t, projects, 2)
 
@@ -442,7 +433,7 @@ func TestGetProjectsRecursively(t *testing.T) {
 			ListGroupProjects(1, gomock.Any()).
 			Return([]*gitlab.Project{}, &gitlab.Response{}, nil)
 
-		projects, err := client.GetProjectsRecursively(1)
+		projects, err := client.GetProjectsRecursively("1")
 		require.NoError(t, err)
 		assert.Empty(t, projects)
 	})
@@ -494,7 +485,7 @@ func TestGetGroupAccessTokens(t *testing.T) {
 			}).
 			Return([]*gitlab.GroupAccessToken{token1, token2}, &gitlab.Response{}, nil)
 
-		tokens, err := client.GetGroupAccessTokens(1, false)
+		tokens, err := client.GetGroupAccessTokens("1", false)
 		require.NoError(t, err)
 		assert.Len(t, tokens, 2)
 
@@ -543,7 +534,7 @@ func TestGetGroupAccessTokens(t *testing.T) {
 			}).
 			Return([]*gitlab.GroupAccessToken{activeToken, inactiveToken}, &gitlab.Response{}, nil)
 
-		tokens, err := client.GetGroupAccessTokens(1, true)
+		tokens, err := client.GetGroupAccessTokens("1", true)
 		require.NoError(t, err)
 		assert.Len(t, tokens, 2)
 	})
@@ -551,7 +542,7 @@ func TestGetGroupAccessTokens(t *testing.T) {
 	t.Run("handles invalid group ID", func(t *testing.T) {
 		client, _ := testClient(t)
 
-		tokens, err := client.GetGroupAccessTokens(0, false)
+		tokens, err := client.GetGroupAccessTokens("", false)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid group ID")
 		assert.Nil(t, tokens)
@@ -624,7 +615,7 @@ func TestGetGroupAccessTokensRecursively(t *testing.T) {
 			}).
 			Return([]*gitlab.GroupAccessToken{subToken}, &gitlab.Response{}, nil)
 
-		tokens, err := client.GetGroupAccessTokensRecursively(1, false)
+		tokens, err := client.GetGroupAccessTokensRecursively("1", false)
 		require.NoError(t, err)
 		assert.Len(t, tokens, 2)
 
@@ -672,7 +663,7 @@ func TestGetProjectAccessTokens(t *testing.T) {
 			}).
 			Return([]*gitlab.ProjectAccessToken{token}, &gitlab.Response{}, nil)
 
-		tokens, err := client.GetProjectAccessTokens(1, false)
+		tokens, err := client.GetProjectAccessTokens("1", false)
 		require.NoError(t, err)
 		assert.Len(t, tokens, 1)
 
@@ -726,7 +717,7 @@ func TestGetProjectAccessTokens(t *testing.T) {
 			}).
 			Return([]*gitlab.ProjectAccessToken{activeToken, inactiveToken}, &gitlab.Response{}, nil)
 
-		tokens, err := client.GetProjectAccessTokens(1, false)
+		tokens, err := client.GetProjectAccessTokens("1", false)
 		require.NoError(t, err)
 		assert.Len(t, tokens, 1)
 		assert.Equal(t, "active-token", tokens[0].Name)
@@ -808,7 +799,7 @@ func TestGetProjectAccessTokensRecursively(t *testing.T) {
 			}).
 			Return([]*gitlab.ProjectAccessToken{token2}, &gitlab.Response{}, nil)
 
-		tokens, err := client.GetProjectAccessTokensRecursively(1, false)
+		tokens, err := client.GetProjectAccessTokensRecursively("1", false)
 		require.NoError(t, err)
 		assert.Len(t, tokens, 2)
 
@@ -825,7 +816,7 @@ func TestGetProjectAccessTokensRecursively(t *testing.T) {
 	t.Run("fetches tokens from all accessible groups when group ID is 0", func(t *testing.T) {
 		client, mockClient := testClient(t)
 
-		// Mock GetAllGroups for GetGroupsRecursively(0)
+		// Mock GetAllGroups for GetGroupsRecursively("0")
 		allGroups := []*gitlab.Group{
 			{ID: 1, Name: "Group 1", FullPath: "group1"},
 		}
@@ -867,7 +858,7 @@ func TestGetProjectAccessTokensRecursively(t *testing.T) {
 			}).
 			Return([]*gitlab.ProjectAccessToken{}, &gitlab.Response{}, nil)
 
-		tokens, err := client.GetProjectAccessTokensRecursively(0, false)
+		tokens, err := client.GetProjectAccessTokensRecursively("", false)
 		require.NoError(t, err)
 		assert.Empty(t, tokens)
 	})
@@ -908,7 +899,7 @@ func TestGetPipelineTriggers(t *testing.T) {
 			}).
 			Return([]*gitlab.PipelineTrigger{trigger1, trigger2}, &gitlab.Response{}, nil)
 
-		triggers, err := client.GetPipelineTriggers(1)
+		triggers, err := client.GetPipelineTriggers("1")
 		require.NoError(t, err)
 		assert.Len(t, triggers, 2)
 
@@ -939,7 +930,7 @@ func TestGetPipelineTriggers(t *testing.T) {
 			ListPipelineTriggers(1, gomock.Any()).
 			Return([]*gitlab.PipelineTrigger{}, &gitlab.Response{}, nil)
 
-		triggers, err := client.GetPipelineTriggers(1)
+		triggers, err := client.GetPipelineTriggers("1")
 		require.NoError(t, err)
 		assert.Empty(t, triggers)
 	})
@@ -1004,7 +995,7 @@ func TestGetPipelineTriggersRecursively(t *testing.T) {
 			ListPipelineTriggers(2, gomock.Any()).
 			Return([]*gitlab.PipelineTrigger{trigger2}, &gitlab.Response{}, nil)
 
-		triggers, err := client.GetPipelineTriggersRecursively(1)
+		triggers, err := client.GetPipelineTriggersRecursively("1")
 		require.NoError(t, err)
 		assert.Len(t, triggers, 2)
 
@@ -1053,7 +1044,7 @@ func TestGetPipelineTriggersRecursively(t *testing.T) {
 			ListPipelineTriggers(1, gomock.Any()).
 			Return([]*gitlab.PipelineTrigger{}, &gitlab.Response{}, nil)
 
-		triggers, err := client.GetPipelineTriggersRecursively(1)
+		triggers, err := client.GetPipelineTriggersRecursively("1")
 		require.NoError(t, err)
 		assert.Empty(t, triggers)
 	})
@@ -1101,7 +1092,7 @@ func TestGetProjectVariables(t *testing.T) {
 			Return([]*gitlab.ProjectVariable{variable1, variable2}, &gitlab.Response{}, nil)
 
 		// Execute
-		variables, err := client.GetProjectVariables(10)
+		variables, err := client.GetProjectVariables("10")
 		require.NoError(t, err)
 		require.Len(t, variables, 2)
 
@@ -1134,7 +1125,7 @@ func TestGetProjectVariables(t *testing.T) {
 			GetProject(10, nil).
 			Return(nil, nil, errAPI)
 
-		variables, err := client.GetProjectVariables(10)
+		variables, err := client.GetProjectVariables("10")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to get project")
 		assert.Nil(t, variables)
@@ -1161,7 +1152,7 @@ func TestGetProjectVariables(t *testing.T) {
 			ListVariables(10, gomock.Any()).
 			Return([]*gitlab.ProjectVariable{}, &gitlab.Response{}, nil)
 
-		variables, err := client.GetProjectVariables(10)
+		variables, err := client.GetProjectVariables("10")
 		require.NoError(t, err)
 		assert.Empty(t, variables)
 	})
@@ -1241,7 +1232,7 @@ func TestGetProjectVariablesRecursively(t *testing.T) {
 			Return([]*gitlab.ProjectVariable{var2}, &gitlab.Response{}, nil)
 
 		// Execute
-		variables, err := client.GetProjectVariablesRecursively(1)
+		variables, err := client.GetProjectVariablesRecursively("1")
 		require.NoError(t, err)
 		require.Len(t, variables, 2)
 
@@ -1274,7 +1265,7 @@ func TestGetProjectVariablesRecursively(t *testing.T) {
 			GetGroup(1, nil).
 			Return(nil, nil, errAPI)
 
-		variables, err := client.GetProjectVariablesRecursively(1)
+		variables, err := client.GetProjectVariablesRecursively("1")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to get root group")
 		assert.Nil(t, variables)
@@ -1343,7 +1334,7 @@ func TestGetProjectVariablesRecursively(t *testing.T) {
 			Return([]*gitlab.ProjectVariable{var2}, &gitlab.Response{}, nil)
 
 		// Execute
-		variables, err := client.GetProjectVariablesRecursively(1)
+		variables, err := client.GetProjectVariablesRecursively("1")
 		require.NoError(t, err)
 		require.Len(t, variables, 1)
 		assert.Equal(t, "VAR2", variables[0].Key)
@@ -1370,7 +1361,7 @@ func TestDebugMode(t *testing.T) {
 			ListSubGroups(1, gomock.Any()).
 			Return([]*gitlab.Group{}, &gitlab.Response{}, nil)
 
-		groups, err := client.GetGroupsRecursively(1)
+		groups, err := client.GetGroupsRecursively("1")
 		require.NoError(t, err)
 		assert.Len(t, groups, 1)
 	})

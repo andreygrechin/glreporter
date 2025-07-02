@@ -64,13 +64,13 @@ func runPAT(_ *cobra.Command, _ []string) error {
 }
 
 func fetchTokens(client *glclient.Client) ([]*glclient.ProjectAccessTokenWithProject, error) {
-	if groupID != 0 && projectID != 0 {
+	if groupID != "" && projectID != "" {
 		return nil, ErrBothGroupIDAndProjectIDProvided
 	}
 
 	// If neither is specified, fetch from all accessible groups
-	if groupID == 0 && projectID == 0 {
-		tokens, err := client.GetProjectAccessTokensRecursively(0, includeInactivePAT)
+	if groupID == "" && projectID == "" {
+		tokens, err := client.GetProjectAccessTokensRecursively("", includeInactivePAT)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch project access tokens from all groups: %w", err)
 		}
@@ -78,7 +78,7 @@ func fetchTokens(client *glclient.Client) ([]*glclient.ProjectAccessTokenWithPro
 		return tokens, nil
 	}
 
-	if groupID != 0 {
+	if groupID != "" {
 		tokens, err := client.GetProjectAccessTokensRecursively(groupID, includeInactivePAT)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch project access tokens recursively: %w", err)
