@@ -84,9 +84,15 @@ func NewClientWithGitLabClient(gitlabClient *gitlab.Client, debug bool) *Client 
 }
 
 // GetGroupsRecursively fetches all groups and their subgroups starting from a given group ID.
+// If groupID is 0, it fetches all accessible groups.
 func (c *Client) GetGroupsRecursively(groupID int) ([]*gitlab.Group, error) {
-	if groupID <= 0 {
+	if groupID < 0 {
 		return nil, fmt.Errorf("%w: %d", ErrInvalidGroupID, groupID)
+	}
+
+	// If no group ID is provided, fetch all accessible groups
+	if groupID == 0 {
+		return c.GetAllGroups()
 	}
 
 	if c.debug {
@@ -119,6 +125,47 @@ func (c *Client) GetGroupsRecursively(groupID int) ([]*gitlab.Group, error) {
 	}
 
 	return groups, nil
+}
+
+// GetAllGroups fetches all accessible groups.
+func (c *Client) GetAllGroups() ([]*gitlab.Group, error) {
+	if c.debug {
+		fmt.Printf("DEBUG: fetching all accessible groups\n")
+	}
+
+	opt := &gitlab.ListGroupsOptions{
+		ListOptions: gitlab.ListOptions{
+			PerPage: maxPageSize,
+			Page:    1,
+		},
+	}
+
+	var allGroups []*gitlab.Group
+
+	for {
+		groups, resp, err := c.client.Groups.ListGroups(opt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list groups: %w", err)
+		}
+
+		allGroups = append(allGroups, groups...)
+
+		if c.debug {
+			fmt.Printf("DEBUG: fetched %d groups on page %d\n", len(groups), opt.Page)
+		}
+
+		if resp.NextPage == 0 {
+			break
+		}
+
+		opt.Page = resp.NextPage
+	}
+
+	if c.debug {
+		fmt.Printf("DEBUG: completed fetching all groups, found %d groups\n", len(allGroups))
+	}
+
+	return allGroups, nil
 }
 
 // GetProjectsRecursively fetches all projects within a group and its subgroups.

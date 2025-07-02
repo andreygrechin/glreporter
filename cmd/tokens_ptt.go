@@ -14,8 +14,11 @@ var pttCmd = &cobra.Command{
 	Use:     "ptt",
 	Aliases: []string{"pipeline-trigger-tokens"},
 	Short:   "Fetch pipeline trigger tokens",
-	Long:    `Fetch pipeline trigger tokens for a specific project or all projects in a group`,
-	RunE:    runPTT,
+	Long: `Fetch pipeline trigger tokens. You can:
+- Specify a group ID to fetch tokens from all projects in that group recursively
+- Specify a project ID to fetch tokens from a single project
+- Specify neither to fetch tokens from all accessible groups`,
+	RunE: runPTT,
 }
 
 func init() {
@@ -61,12 +64,18 @@ func runPTT(_ *cobra.Command, _ []string) error {
 }
 
 func fetchTriggers(client *glclient.Client) ([]*glclient.PipelineTriggerWithProject, error) {
-	if groupID == 0 && projectID == 0 {
-		return nil, ErrGroupOrProjectIDRequired
-	}
-
 	if groupID != 0 && projectID != 0 {
 		return nil, ErrBothGroupIDAndProjectIDProvided
+	}
+
+	// If neither is specified, fetch from all accessible groups
+	if groupID == 0 && projectID == 0 {
+		triggers, err := client.GetPipelineTriggersRecursively(0)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch pipeline triggers from all groups: %w", err)
+		}
+
+		return triggers, nil
 	}
 
 	if groupID != 0 {
