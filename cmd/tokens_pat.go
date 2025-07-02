@@ -16,8 +16,11 @@ var patCmd = &cobra.Command{
 	Use:     "pat",
 	Aliases: []string{"project-access-tokens"},
 	Short:   "Fetches and displays project access tokens",
-	Long:    `Fetches and displays project access tokens for the specified GitLab project or all projects in a group.`,
-	RunE:    runPAT,
+	Long: `Fetches and displays project access tokens. You can:
+- Specify a group ID to fetch tokens from all projects in that group recursively
+- Specify a project ID to fetch tokens from a single project
+- Specify neither to fetch tokens from all accessible groups`,
+	RunE: runPAT,
 }
 
 func init() {
@@ -61,12 +64,18 @@ func runPAT(_ *cobra.Command, _ []string) error {
 }
 
 func fetchTokens(client *glclient.Client) ([]*glclient.ProjectAccessTokenWithProject, error) {
-	if groupID == 0 && projectID == 0 {
-		return nil, ErrGroupOrProjectIDRequired
-	}
-
 	if groupID != 0 && projectID != 0 {
 		return nil, ErrBothGroupIDAndProjectIDProvided
+	}
+
+	// If neither is specified, fetch from all accessible groups
+	if groupID == 0 && projectID == 0 {
+		tokens, err := client.GetProjectAccessTokensRecursively(0, includeInactivePAT)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch project access tokens from all groups: %w", err)
+		}
+
+		return tokens, nil
 	}
 
 	if groupID != 0 {

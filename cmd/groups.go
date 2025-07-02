@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/andreygrechin/glreporter/internal/glclient"
 	"github.com/andreygrechin/glreporter/internal/output"
 	"github.com/spf13/cobra"
@@ -12,17 +10,16 @@ import (
 var groupsCmd = &cobra.Command{
 	Use:   "groups",
 	Short: "Fetches and displays information about groups",
-	Long:  `Fetches and displays information about GitLab groups starting from the specified group ID.`,
-	RunE:  runGroups,
+	Long: `Fetches and displays information about GitLab groups. If a group ID is provided, 
+it will fetch all groups and subgroups starting from that group. 
+If no group ID is provided, it will fetch all accessible groups.`,
+	RunE: runGroups,
 }
 
 func init() {
 	groupsCmd.PersistentFlags().IntVar(&groupID, "group-id", 0,
-		"The ID of the top-level GitLab group to start the search from (required)")
-
-	if err := groupsCmd.MarkPersistentFlagRequired("group-id"); err != nil {
-		panic(fmt.Sprintf("failed to mark group-id flag as required: %v", err))
-	}
+		"The ID of the top-level GitLab group to start the search from "+
+			"(optional, fetches all accessible groups if not provided)")
 
 	RootCmd.AddCommand(groupsCmd)
 }

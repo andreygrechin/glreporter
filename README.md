@@ -49,10 +49,16 @@ glreporter completion <shell>
 ### Groups and Projects
 
 ```shell
-# Fetch groups recursively
+# Fetch all accessible groups
+glreporter groups
+
+# Fetch groups recursively from a specific group
 glreporter groups --group-id <group-id>
 
-# Fetch projects from all groups
+# Fetch projects from all accessible groups
+glreporter projects
+
+# Fetch projects from a specific group and its subgroups
 glreporter projects --group-id <group-id>
 ```
 
@@ -65,7 +71,10 @@ glreporter tokens gat --group-id <group-id>
 # Include inactive group access tokens
 glreporter tokens gat --group-id <group-id> --include-inactive
 
-# Fetch project access tokens for all projects in a group
+# Fetch project access tokens from all accessible groups
+glreporter tokens pat
+
+# Fetch project access tokens for all projects in a specific group
 glreporter tokens pat --group-id <group-id>
 
 # Fetch project access tokens for a specific project
@@ -74,7 +83,10 @@ glreporter tokens pat --project-id <project-id>
 # Include inactive project access tokens
 glreporter tokens pat --group-id <group-id> --include-inactive
 
-# Fetch pipeline trigger tokens for all projects in a group
+# Fetch pipeline trigger tokens from all accessible groups
+glreporter tokens ptt
+
+# Fetch pipeline trigger tokens for all projects in a specific group
 glreporter tokens ptt --group-id <group-id>
 
 # Fetch pipeline trigger tokens for a specific project
@@ -92,12 +104,12 @@ glreporter tokens ptt --project-id <project-id>
 ### Command-Specific Flags
 
 ```shell
---group-id <group-id>   # GitLab group ID (required for groups/projects commands)
---project-id <project-id> # GitLab project ID (alternative to group-id for token commands)
---include-inactive      # Include inactive tokens in output (token commands only)
+--group-id <group-id>         # GitLab group ID (optional, fetches info from all accessible groups if not provided)
+--project-id <project-id>     # GitLab project ID (alternative to group-id for project-specific commands)
+--include-inactive            # Include inactive tokens in output (token commands only)
 ```
 
-**Note**: For token commands, use either `--group-id` (to fetch from all projects in a group) or `--project-id` (to fetch from a specific project), but not both.
+**Note**: For token commands, use either `--group-id` (to fetch from all projects in a group) or `--project-id` (to fetch from a specific project), but not both. If neither is provided, the command will fetch tokens from all accessible groups or projects.
 
 ### Output Formats
 

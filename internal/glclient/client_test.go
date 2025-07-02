@@ -203,10 +203,33 @@ func TestGetGroupsRecursively(t *testing.T) {
 		assert.Len(t, groups, 75) // 1 root + 74 subgroups
 	})
 
-	t.Run("handles invalid group ID", func(t *testing.T) {
-		client, _ := testClient(t)
+	t.Run("fetches all groups when group ID is 0", func(t *testing.T) {
+		client, mockClient := testClient(t)
+
+		allGroups := []*gitlab.Group{
+			{ID: 1, Name: "Group 1", FullPath: "group1"},
+			{ID: 2, Name: "Group 2", FullPath: "group2"},
+		}
+
+		mockClient.MockGroups.EXPECT().
+			ListGroups(&gitlab.ListGroupsOptions{
+				ListOptions: gitlab.ListOptions{
+					PerPage: 50,
+					Page:    1,
+				},
+			}).
+			Return(allGroups, &gitlab.Response{}, nil)
 
 		groups, err := client.GetGroupsRecursively(0)
+		require.NoError(t, err)
+		assert.Len(t, groups, 2)
+		assert.Equal(t, allGroups, groups)
+	})
+
+	t.Run("handles invalid negative group ID", func(t *testing.T) {
+		client, _ := testClient(t)
+
+		groups, err := client.GetGroupsRecursively(-1)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid group ID")
 		assert.Nil(t, groups)
@@ -222,6 +245,66 @@ func TestGetGroupsRecursively(t *testing.T) {
 		groups, err := client.GetGroupsRecursively(1)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to get root group")
+		assert.Nil(t, groups)
+	})
+}
+
+func TestGetAllGroups(t *testing.T) {
+	t.Run("fetches all accessible groups", func(t *testing.T) {
+		client, mockClient := testClient(t)
+
+		page1Groups := []*gitlab.Group{
+			{ID: 1, Name: "Group 1", FullPath: "group1"},
+			{ID: 2, Name: "Group 2", FullPath: "group2"},
+		}
+
+		page2Groups := []*gitlab.Group{
+			{ID: 3, Name: "Group 3", FullPath: "group3"},
+		}
+
+		// First page
+		mockClient.MockGroups.EXPECT().
+			ListGroups(&gitlab.ListGroupsOptions{
+				ListOptions: gitlab.ListOptions{
+					PerPage: 50,
+					Page:    1,
+				},
+			}).
+			Return(page1Groups, &gitlab.Response{NextPage: 2}, nil)
+
+		// Second page
+		mockClient.MockGroups.EXPECT().
+			ListGroups(&gitlab.ListGroupsOptions{
+				ListOptions: gitlab.ListOptions{
+					PerPage: 50,
+					Page:    2,
+				},
+			}).
+			Return(page2Groups, &gitlab.Response{NextPage: 0}, nil)
+
+		groups, err := client.GetAllGroups()
+		require.NoError(t, err)
+		assert.Len(t, groups, 3)
+		assert.Equal(t, "Group 1", groups[0].Name)
+		assert.Equal(t, "Group 2", groups[1].Name)
+		assert.Equal(t, "Group 3", groups[2].Name)
+	})
+
+	t.Run("handles API error", func(t *testing.T) {
+		client, mockClient := testClient(t)
+
+		mockClient.MockGroups.EXPECT().
+			ListGroups(&gitlab.ListGroupsOptions{
+				ListOptions: gitlab.ListOptions{
+					PerPage: 50,
+					Page:    1,
+				},
+			}).
+			Return(nil, nil, errAPI)
+
+		groups, err := client.GetAllGroups()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to list groups")
 		assert.Nil(t, groups)
 	})
 }
@@ -739,13 +822,54 @@ func TestGetProjectAccessTokensRecursively(t *testing.T) {
 		assert.True(t, tokensByProject["root-group/project-2"])
 	})
 
-	t.Run("handles invalid group ID", func(t *testing.T) {
-		client, _ := testClient(t)
+	t.Run("fetches tokens from all accessible groups when group ID is 0", func(t *testing.T) {
+		client, mockClient := testClient(t)
+
+		// Mock GetAllGroups for GetGroupsRecursively(0)
+		allGroups := []*gitlab.Group{
+			{ID: 1, Name: "Group 1", FullPath: "group1"},
+		}
+
+		mockClient.MockGroups.EXPECT().
+			ListGroups(&gitlab.ListGroupsOptions{
+				ListOptions: gitlab.ListOptions{
+					PerPage: 50,
+					Page:    1,
+				},
+			}).
+			Return(allGroups, &gitlab.Response{}, nil)
+
+		// No subgroups
+		mockClient.MockGroups.EXPECT().
+			ListSubGroups(1, gomock.Any()).
+			Return([]*gitlab.Group{}, &gitlab.Response{}, nil).
+			AnyTimes()
+
+		// Projects in group
+		project := &gitlab.Project{
+			ID:                10,
+			Name:              "project1",
+			PathWithNamespace: "group1/project1",
+			Namespace:         &gitlab.ProjectNamespace{FullPath: "group1"},
+			WebURL:            "https://gitlab.com/group1/project1",
+		}
+
+		mockClient.MockGroups.EXPECT().
+			ListGroupProjects(1, gomock.Any()).
+			Return([]*gitlab.Project{project}, &gitlab.Response{}, nil)
+
+		// No tokens for this project
+		activeState := "active"
+		mockClient.MockProjectAccessTokens.EXPECT().
+			ListProjectAccessTokens(10, &gitlab.ListProjectAccessTokensOptions{
+				ListOptions: gitlab.ListOptions{PerPage: 50, Page: 1},
+				State:       &activeState,
+			}).
+			Return([]*gitlab.ProjectAccessToken{}, &gitlab.Response{}, nil)
 
 		tokens, err := client.GetProjectAccessTokensRecursively(0, false)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "invalid group ID")
-		assert.Nil(t, tokens)
+		require.NoError(t, err)
+		assert.Empty(t, tokens)
 	})
 }
 

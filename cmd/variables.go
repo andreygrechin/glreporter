@@ -14,9 +14,10 @@ import (
 var VariablesCmd = &cobra.Command{
 	Use:   "variables",
 	Short: "Fetches and displays CI/CD variables",
-	Long: `Fetches and displays CI/CD variables from GitLab projects. You can specify either a group ID to ` +
-		`fetch variables from all projects in the group recursively, or a project ID to fetch variables ` +
-		`from a single project.`,
+	Long: `Fetches and displays CI/CD variables from GitLab projects. You can:
+- Specify a group ID to fetch variables from all projects in that group recursively
+- Specify a project ID to fetch variables from a single project
+- Specify neither to fetch variables from all accessible groups`,
 	RunE: runVariables,
 }
 
@@ -24,7 +25,8 @@ var variablesProjectID string
 
 func init() {
 	VariablesCmd.PersistentFlags().IntVar(&groupID, "group-id", 0,
-		"The ID of the GitLab group to fetch variables from recursively")
+		"The ID of the GitLab group to fetch variables from recursively "+
+			"(optional, fetches from all accessible groups if neither group-id nor project-id is provided)")
 	VariablesCmd.PersistentFlags().StringVar(&variablesProjectID, "project-id", "",
 		"The ID of the GitLab project to fetch variables from")
 
@@ -72,10 +74,6 @@ func runVariables(_ *cobra.Command, _ []string) error {
 }
 
 func validateVariablesParameters() error {
-	if groupID == 0 && variablesProjectID == "" {
-		return ErrGroupOrProjectIDRequired
-	}
-
 	if groupID != 0 && variablesProjectID != "" {
 		return ErrBothGroupIDAndProjectIDProvided
 	}
