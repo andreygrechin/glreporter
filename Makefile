@@ -1,4 +1,4 @@
-.PHONY: all build format fmt lint vuln test release check_clean bump_patch bump_minor bump_major
+.PHONY: all lint format fmt test build coverage-report coverage-report-html security_scan check_clean release-test release
 
 # Build variables
 VERSION    := $(shell git describe --tags --always --dirty)
@@ -8,8 +8,18 @@ MOD_PATH   := $(shell go list -m)
 APP_NAME   := glreporter
 GOCOVERDIR := ./covdatafiles
 
-# Build targets
-all: lint test build
+all: lint format test build
+
+lint: fmt
+	golangci-lint run --show-stats
+
+format:
+	gofumpt -l -w $(shell find . -type f -name "*.go" -not -path "./vendor/*")
+
+fmt: format
+
+test:
+	go test ./...
 
 build:
 	CGO_ENABLED=0 \
@@ -22,42 +32,16 @@ build:
 		-X main.Commit=$(COMMIT)" \
 		-o bin/$(APP_NAME)
 
-format:
-	gofumpt -l -w .
+coverage-report:
+	go test -race -coverprofile="${GOCOVERDIR}/coverage.out" ./... && go tool cover -func="${GOCOVERDIR}/coverage.out"
 
-fmt: format
+coverage-report-html:
+	go test -race -coverprofile="${GOCOVERDIR}/coverage.out" ./... && go tool cover -func="${GOCOVERDIR}/coverage.out"
+	go tool cover -html="${GOCOVERDIR}/coverage.out"
 
-lint: fmt
-	go vet ./...
-	staticcheck ./...
-	golangci-lint run --show-stats
-
-vuln:
+security_scan:
 	gosec ./...
 	govulncheck
-
-cov-integration:
-	rm -fr "${GOCOVERDIR}" && mkdir -p "${GOCOVERDIR}"
-	go build \
-		-ldflags \
-		"-s \
-		-w \
-		-X $(MOD_PATH)/internal/config.Version=$(VERSION) \
-		-X $(MOD_PATH)/internal/config.BuildTime=$(BUILDTIME) \
-		-X $(MOD_PATH)/internal/config.Commit=$(COMMIT)" \
-		-o bin/$(APP_NAME) \
-		-cover
-	go tool covdata percent -i=covdatafiles
-
-cov-unit:
-	rm -fr "${GOCOVERDIR}" && mkdir -p "${GOCOVERDIR}"
-	go test -coverprofile="${GOCOVERDIR}/cover.out" ./...
-	go tool cover -func="${GOCOVERDIR}/cover.out"
-	go tool cover -html="${GOCOVERDIR}/cover.out"
-	go tool cover -html="${GOCOVERDIR}/cover.out" -o "${GOCOVERDIR}/coverage.html"
-
-test:
-	go test ./...
 
 check_clean:
 	@if [ -n "$(shell git status --porcelain)" ]; then \
@@ -65,26 +49,9 @@ check_clean:
 		exit 1; \
 	fi
 
-release-test: lint test vuln
+release-test: lint test security_scan
 	goreleaser check
 	goreleaser release --snapshot --clean
 
-release: check_clean lint test vuln
+release: check_clean lint test security_scan
 	goreleaser release --clean
-
-define bump_version
-	$(eval NEW_VERSION := $(shell gosemver bump $(1) $(VERSION)))
-	@echo "Old version $(VERSION)"
-	@echo "Bumped to version $(NEW_VERSION)"
-	@git tag -a "v$(NEW_VERSION)" -m "v$(NEW_VERSION)"
-	@git push origin "v$(NEW_VERSION)"
-endef
-
-bump_patch:
-	$(call bump_version,patch)
-
-bump_minor:
-	$(call bump_version,minor)
-
-bump_major:
-	$(call bump_version,major)
