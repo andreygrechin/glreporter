@@ -1,107 +1,93 @@
-# CLAUDE.md
+# Development Guidelines
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Build & Test Commands
 
-## Project Overview
+- Build Go projects: `make build`
+- Run tests: `make test`
+- Run specific test: `go test -run TestName ./path/to/package`
+- Run tests with coverage: `go test -cover ./...`
+- Run linting: `make lint`
+- Format code: `make format`
+- Run code generation: `go generate ./...`
+- Coverage report: `go test -race -coverprofile=coverage.out ./... && go tool cover -func=coverage.out`
+- On completion, use formatting (`make format`), tests (`make test`), and code generation (`make generate`)
+- Never commit without running completion sequence
 
-**glreporter** is a Go CLI tool that asynchronously fetches and displays information about GitLab groups and their associated projects using the GitLab API. It supports recursive traversal of resource hierarchies and concurrent data fetching for performance.
+## Important Workflow Notes
 
-## Development Guidelines
+- Always run tests, format, and linter
+- For linter use `make lint`
+- Run tests, format, and linter after making significant changes to verify functionality
+- Go version: 1.24+
+- Don't add "Generated with Claude Code" or "Co-Authored-By: Claude" to commit messages or PRs
+- Do not include "Test plan" sections in PR descriptions
+- Do not add comments that describe changes, progress, or historical modifications. Avoid comments like "new function," "added test," "now we changed this," or "previously used X, now using Y." Comments should only describe the current state and purpose of the code, not its history or evolution.
+- Use `go:generate` for generating mocks, never modify generated files manually. Mocks are generated with `moq` and stored in the `mocks` package.
+- After important functionality added, update README.md accordingly
+- Always write unit tests instead of manual testing
+- Don't manually test by running servers and using curl - write comprehensive unit tests instead
 
-### Core Philosophy
+## Code Style Guidelines
 
-1. **TDD is non-negotiable**: Every single line of production code appears only after a failing go test. Follow the red-green-refactor loop without exception.
-2. **Ship in tiny steps**: Keep the workflow runs green: run `make test`, `make build`, `make format`, and `make lint` after every change. The code must compile, pass tests, and conform to formatting at all times.
-
-### Quick Reference – Idiomatic Defaults
-
-1. **Tests**: Standard testing package plus `stretchr/testify` for assertions and `gomock` for mocks.
-2. **Concurrency**: Use goroutines and channels for concurrency; sync.Mutex for shared state protection.
-3. **Error Handling**: Return (value, error) pairs; use sentinel errors and wrap them with %w. Check errors with errors.Is or errors.As.
-4. **Structs**: Prefer concrete types; use small interfaces only at the call-site boundary.
-5. **Mutability**: Work with value copies; protect shared state with channels or mutexes; run the race detector regularly.
-6. **Types**: Prefer concrete types; declare small interfaces only at the call-site boundary.
-7. **Functions**: Keep them short and single-purpose.
-8. **Fixtures**: Provide builders that return fully populated structs; allow field overrides via functional options.
-
-### Behavior-Driven Testing
-
-1. Write tests against exported APIs only.
-2. Place tests in \*_test.go under the same package name (not a \*_test package) to prevent peeking at internals.
-3. Aim for high coverage that reflects real business cases—focus on branches, not vanity numbers.
-
-### Project and Code Structure
-
-1. Packages are lower-snake and single-responsibility.
-2. Filenames are simple: foo.go, foo_test.go.
-3. Exported identifiers require godoc comments; internal code should read clearly without extra commentary.
-4. Define struct tags (json, validate) and validate input at the boundaries with go-playground/validator.
-5. Apply the functional-options pattern or plain struct literals for configuration; Go lacks default arguments.
+- The codebase follows standard Go conventions. When in doubt, check the [Effective Go](https://golang.org/doc/effective_go) guide.
+- Follow [Go Code Review Comments](https://go.dev/wiki/CodeReviewComments)
+- Use snake_case for filenames, camelCase for variables, PascalCase for exported names
+- Group imports: standard library, then third-party, then local packages
+- Error handling: check errors immediately and return them with context
+- Use meaningful variable names; avoid single-letter names except in loops
+- Validate function parameters at the start before processing
+- Return early when possible to avoid deep nesting
+- Prefer composition over inheritance
+- Interfaces: Define interfaces in consumer packages
+- Function size preferences:
+  - Aim for functions around 50-60 lines when possible
+  - Don't break down functions too small as it can reduce readability
+  - Maintain focus on a single responsibility per function
+- Comment style: in-function comments should be lowercase sentences
+- Code width: keep lines under 120 characters when possible
+- Format: Use `make format`
+- Use existing structs from lower-level packages directly, don't duplicate them
+  - When a struct is already defined in a lower-level package, use it directly instead of creating a duplicate definition
+- Never add comments explaining what interface a struct implements - this is client-side concern
+  - Don't write comments like "implements the Fetcher interface" - the consumer of the interface decides what implements it, not the provider
+- In any file with structs and methods, order should be:
+    1. Structs with methods first
+    2. Interfaces after
+    3. Data structs after
 
 ### Error Handling
 
-1. Return (value, error) pairs.
-2. Create sentinel errors and wrap them with %w; check with errors.Is or errors.As.
-3. Use early returns to fail fast.
+- Use `fmt.Errorf("context: %w", err)` to wrap errors with context
+- Check errors immediately after function calls
+- Return detailed error information through wrapping
 
-### Workflow Checklist
+### Comments
 
-1. Red: write a failing test.
-2. Green: add the minimum code to pass.
-3. Refactor: improve names, collapse duplication of knowledge (not just code), keep the public API stable.
-4. Run `make format`, `make build`, `make test`, and `make lint`.
-5. After cleaning all errors, ensure the code is still covered by tests and runs without issues.
+- All comments inside functions should be lowercase
+- Document all exported items with proper casing
+- Use inline comments for complex logic
+- Start comments with the name of the thing being described
 
-## Key Architecture
+### Testing
 
-### Project Structure
+- Use table-driven tests where appropriate
+- Use subtest with `t.Run()` to make test more structured
+- Use `require` for fatal assertions, `assert` for non-fatal ones
+- Use mock interfaces for dependency injection
+- Test names follow pattern: `Test<Type>_<method>`
 
-- **cmd/**: Contains CLI commands (root, groups, projects, tokens) using spf13/cobra
-- **internal/glclient/**: GitLab API client with concurrent fetching capabilities (uses gitlab.com/gitlab-org/api/client-go)
-- **internal/output/**: Formatters for table, JSON, and CSV output
-- **internal/worker/**: Worker pool implementation for managing concurrent operations
-- **main.go**: Entry point with version information injection
+## Libraries
 
-### Concurrency Model
-
-- Uses a worker pool pattern with 10 concurrent workers
-- Implements recursive fetching with goroutines and sync.Mutex for thread safety
-- Handles pagination for API responses (100 items per page)
-
-## Usage
-
-For detailed usage instructions, refer to the [README.md](README.md#usage) file.
-
-## Development Commands
-
-### Building and Running
-
-```shell
-# Build the binary with version information
-make build
-
-# Run the built binary
-./bin/glreporter
-```
-
-### Testing and Quality Checks
-
-```shell
-# Format the code
-make format
-
-# Run linters (includes gofumpt, go vet, staticcheck, golangci-lint)
-make lint
-
-# Run all tests
-make test
-
-# Security scanning
-make vuln
-
-# Coverage analysis
-make cov-unit      # Unit test coverage
-make cov-integration  # Integration test coverage
-```
-
-Note: The `GITLAB_TOKEN` environment variable for live tests will be provided in the working environment.
+- Logging: `log/slog`
+- CLI commands: `github.com/spf13/cobra`
+- GitLab API client: `gitlab.com/gitlab-org/api/client-go`
+- HTTP/REST: `github.com/go-resty/resty`
+- Middleware: `github.com/didip/tollbooth/v8`
+- Database: `github.com/jmoiron/sqlx` with `modernc.org/sqlite`
+- Testing: `github.com/stretchr/testify`
+- Testing helpers: `github.com/go-pkgz/testutils`
+- Mock generation: `github.com/matryer/moq`
+- OpenAI: `github.com/sashabaranov/go-openai`
+- Frontend: HTMX v2. Try to avoid using JS.
+- For containerized tests use `github.com/go-pkgz/testutils`
+- To access libraries, figure how to use and check their documentation, use `go doc` command and `gh` tool
