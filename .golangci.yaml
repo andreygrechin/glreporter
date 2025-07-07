@@ -13,7 +13,15 @@ linters:
     - gochecknoglobals
     - exhaustruct
     - ireturn
+    - wsl
   settings:
+    goconst:
+      min-occurrences: 2
+    gocritic:
+      enabled-tags:
+        - performance
+        - style
+        - experimental
     paralleltest:
       ignore-missing: true
       ignore-missing-subtests: true
@@ -22,6 +30,8 @@ linters:
         extended-rules:
           json:
             case: snake
+    misspell:
+      locale: US
   exclusions:
     generated: lax
     warn-unused: true
@@ -54,6 +64,18 @@ linters:
           - goconst
         text: occurrences, make it a constant
         path: "^.*_test\\.go$"
+      - linters:
+          - embeddedstructfieldcheck
+        text: there must be an empty line separating embedded fields from regular fields
+      - linters:
+          - noinlineerr
+        text: avoid inline error handling using `if err := ...; err != nil`; use plain assignment `err := ...`
+      - linters:
+          - wsl_v5
+        text: "missing whitespace above this line"
+
+    # paths:
+    #   - vendor
 
 formatters:
   enable:
@@ -65,6 +87,7 @@ formatters:
   exclusions:
     generated: lax
     # paths:
-    #   - third_party$
-    #   - builtin$
-    #   - examples$
+    # - vendor
+    # - third_party$
+    # - builtin$
+    # - examples$

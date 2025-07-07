@@ -1,17 +1,14 @@
 package glclient
 
 import (
-	"errors"
 	"fmt"
 	"sort"
+	"strconv"
 	"sync"
 
 	"github.com/andreygrechin/glreporter/internal/worker"
 	gitlab "gitlab.com/gitlab-org/api/client-go"
 )
-
-// ErrInvalidGroupID is returned when an invalid group ID is provided.
-var ErrInvalidGroupID = errors.New("invalid group ID")
 
 // GroupAccessTokenWithGroup represents a group access token with associated group information.
 type GroupAccessTokenWithGroup struct {
@@ -85,18 +82,14 @@ func NewClientWithGitLabClient(gitlabClient *gitlab.Client, debug bool) *Client 
 
 // GetGroupsRecursively fetches all groups and their subgroups starting from a given group ID.
 // If groupID is negative, return an error.
-func (c *Client) GetGroupsRecursively(groupID int) ([]*gitlab.Group, error) {
-	if groupID < 0 {
-		return nil, fmt.Errorf("%w: %d", ErrInvalidGroupID, groupID)
-	}
-
+func (c *Client) GetGroupsRecursively(groupID string) ([]*gitlab.Group, error) {
 	// If no group ID is provided, fetch all accessible groups
-	if groupID == 0 {
+	if groupID == "" {
 		return c.GetAllGroups()
 	}
 
 	if c.debug {
-		fmt.Printf("DEBUG: starting recursive group fetch for group ID %d\n", groupID)
+		fmt.Printf("DEBUG: starting recursive group fetch for group ID %s\n", groupID)
 	}
 
 	var (
@@ -169,7 +162,7 @@ func (c *Client) GetAllGroups() ([]*gitlab.Group, error) {
 }
 
 // GetProjectsRecursively fetches all projects within a group and its subgroups.
-func (c *Client) GetProjectsRecursively(groupID int) ([]*gitlab.Project, error) {
+func (c *Client) GetProjectsRecursively(groupID string) ([]*gitlab.Project, error) {
 	groups, err := c.GetGroupsRecursively(groupID)
 	if err != nil {
 		return nil, err
@@ -193,10 +186,10 @@ func (c *Client) GetProjectsRecursively(groupID int) ([]*gitlab.Project, error) 
 		c.pool.Submit(func() {
 			defer wg.Done()
 			// Fetch projects for this group
-			groupProjects, err := c.fetchProjectsForGroupWithDedupe(group.ID)
+			groupProjects, err := c.fetchProjectsForGroupWithDedupe(group.FullPath)
 			if err != nil {
 				if c.debug {
-					fmt.Printf("DEBUG: error fetching projects for group %d: %v\n", group.ID, err)
+					fmt.Printf("DEBUG: error fetching projects for group %s: %v\n", group.FullPath, err)
 				}
 				// Continue with other groups even if one fails
 				return
@@ -234,11 +227,7 @@ func (c *Client) GetProjectsRecursively(groupID int) ([]*gitlab.Project, error) 
 }
 
 // GetGroupAccessTokens fetches all access tokens for a specific group.
-func (c *Client) GetGroupAccessTokens(groupID int, includeInactive bool) ([]*GroupAccessTokenWithGroup, error) {
-	if groupID <= 0 {
-		return nil, fmt.Errorf("%w: %d", ErrInvalidGroupID, groupID)
-	}
-
+func (c *Client) GetGroupAccessTokens(groupID string, includeInactive bool) ([]*GroupAccessTokenWithGroup, error) {
 	// Get the group information first
 	group, _, err := c.client.Groups.GetGroup(groupID, nil)
 	if err != nil {
@@ -250,7 +239,7 @@ func (c *Client) GetGroupAccessTokens(groupID int, includeInactive bool) ([]*Gro
 
 // GetGroupAccessTokensRecursively fetches all access tokens for all groups within a group and its subgroups.
 func (c *Client) GetGroupAccessTokensRecursively(
-	groupID int,
+	groupID string,
 	includeInactive bool,
 ) ([]*GroupAccessTokenWithGroup, error) {
 	groups, err := c.GetGroupsRecursively(groupID)
@@ -271,7 +260,7 @@ func (c *Client) GetGroupAccessTokensRecursively(
 	for _, group := range groups {
 		wg.Add(1)
 
-		groupID := group.ID
+		groupID := strconv.Itoa(group.ID)
 		groupCopy := group
 
 		c.pool.Submit(func() {
@@ -290,20 +279,23 @@ func (c *Client) GetGroupAccessTokensRecursively(
 }
 
 // GetProjectAccessTokens fetches all access tokens for a specific project.
-func (c *Client) GetProjectAccessTokens(projectID int, includeInactive bool) ([]*ProjectAccessTokenWithProject, error) {
+func (c *Client) GetProjectAccessTokens(
+	projectID string,
+	includeInactive bool,
+) ([]*ProjectAccessTokenWithProject, error) {
 	if c.debug {
-		fmt.Printf("DEBUG: fetching project access tokens for project %d\n", projectID)
+		fmt.Printf("DEBUG: fetching project access tokens for project %s\n", projectID)
 	}
 
 	// First, get the project information
 	project, _, err := c.client.Projects.GetProject(projectID, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get project %d: %w", projectID, err)
+		return nil, fmt.Errorf("failed to get project %s: %w", projectID, err)
 	}
 
 	tokens, err := c.listTokensForProject(projectID, project, includeInactive)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list tokens for project %d: %w", projectID, err)
+		return nil, fmt.Errorf("failed to list tokens for project %s: %w", projectID, err)
 	}
 
 	return tokens, nil
@@ -311,11 +303,11 @@ func (c *Client) GetProjectAccessTokens(projectID int, includeInactive bool) ([]
 
 // GetProjectAccessTokensRecursively fetches all access tokens for all projects within a group and its subgroups.
 func (c *Client) GetProjectAccessTokensRecursively(
-	groupID int,
+	groupID string,
 	includeInactive bool,
 ) ([]*ProjectAccessTokenWithProject, error) {
 	if c.debug {
-		fmt.Printf("DEBUG: starting recursive project access token fetch for group ID %d\n", groupID)
+		fmt.Printf("DEBUG: starting recursive project access token fetch for group ID %s\n", groupID)
 	}
 
 	// First, get all projects recursively
@@ -333,7 +325,7 @@ func (c *Client) GetProjectAccessTokensRecursively(
 	for _, project := range projects {
 		wg.Add(1)
 
-		projectID := project.ID
+		projectID := strconv.Itoa(project.ID)
 
 		c.pool.Submit(func() {
 			defer wg.Done()
@@ -351,9 +343,9 @@ func (c *Client) GetProjectAccessTokensRecursively(
 }
 
 // GetPipelineTriggers fetches all pipeline triggers for a specific project.
-func (c *Client) GetPipelineTriggers(projectID int) ([]*PipelineTriggerWithProject, error) {
+func (c *Client) GetPipelineTriggers(projectID string) ([]*PipelineTriggerWithProject, error) {
 	if c.debug {
-		fmt.Printf("DEBUG: fetching pipeline trigger tokens for project ID %d\n", projectID)
+		fmt.Printf("DEBUG: fetching pipeline trigger tokens for project ID %s\n", projectID)
 	}
 
 	// First get project info
@@ -366,9 +358,9 @@ func (c *Client) GetPipelineTriggers(projectID int) ([]*PipelineTriggerWithProje
 }
 
 // GetPipelineTriggersRecursively fetches all pipeline triggers for all projects within a group and its subgroups.
-func (c *Client) GetPipelineTriggersRecursively(groupID int) ([]*PipelineTriggerWithProject, error) {
+func (c *Client) GetPipelineTriggersRecursively(groupID string) ([]*PipelineTriggerWithProject, error) {
 	if c.debug {
-		fmt.Printf("DEBUG: starting recursive pipeline trigger tokens fetch for group ID %d\n", groupID)
+		fmt.Printf("DEBUG: starting recursive pipeline trigger tokens fetch for group ID %s\n", groupID)
 	}
 
 	// First, get all projects recursively
@@ -386,7 +378,7 @@ func (c *Client) GetPipelineTriggersRecursively(groupID int) ([]*PipelineTrigger
 	for _, project := range projects {
 		wg.Add(1)
 
-		projectID := project.ID
+		projectID := strconv.Itoa(project.ID)
 
 		c.pool.Submit(func() {
 			defer wg.Done()
@@ -404,29 +396,29 @@ func (c *Client) GetPipelineTriggersRecursively(groupID int) ([]*PipelineTrigger
 }
 
 // GetProjectVariables fetches all CI/CD variables for a specific project.
-func (c *Client) GetProjectVariables(projectID int) ([]*ProjectVariableWithProject, error) {
+func (c *Client) GetProjectVariables(projectID string) ([]*ProjectVariableWithProject, error) {
 	if c.debug {
-		fmt.Printf("DEBUG: fetching project variables for project %d\n", projectID)
+		fmt.Printf("DEBUG: fetching project variables for project %s\n", projectID)
 	}
 
 	// First, get the project information
 	project, _, err := c.client.Projects.GetProject(projectID, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get project %d: %w", projectID, err)
+		return nil, fmt.Errorf("failed to get project %s: %w", projectID, err)
 	}
 
 	variables, err := c.listVariablesForProject(projectID, project)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list variables for project %d: %w", projectID, err)
+		return nil, fmt.Errorf("failed to list variables for project %s: %w", projectID, err)
 	}
 
 	return variables, nil
 }
 
 // GetProjectVariablesRecursively fetches all CI/CD variables for all projects within a group and its subgroups.
-func (c *Client) GetProjectVariablesRecursively(groupID int) ([]*ProjectVariableWithProject, error) {
+func (c *Client) GetProjectVariablesRecursively(groupID string) ([]*ProjectVariableWithProject, error) {
 	if c.debug {
-		fmt.Printf("DEBUG: starting recursive project variables fetch for group ID %d\n", groupID)
+		fmt.Printf("DEBUG: starting recursive project variables fetch for group ID %s\n", groupID)
 	}
 
 	// First, get all projects recursively
@@ -444,7 +436,7 @@ func (c *Client) GetProjectVariablesRecursively(groupID int) ([]*ProjectVariable
 	for _, project := range projects {
 		wg.Add(1)
 
-		projectID := project.ID
+		projectID := strconv.Itoa(project.ID)
 		projectCopy := project
 
 		c.pool.Submit(func() {
@@ -463,12 +455,12 @@ func (c *Client) GetProjectVariablesRecursively(groupID int) ([]*ProjectVariable
 }
 
 func (c *Client) listTokensForGroup(
-	groupID int,
+	groupID string,
 	group *gitlab.Group,
 	includeInactive bool,
 ) ([]*GroupAccessTokenWithGroup, error) {
 	if c.debug {
-		fmt.Printf("DEBUG: fetching group access tokens for group ID %d\n", groupID)
+		fmt.Printf("DEBUG: fetching group access tokens for group ID %s\n", groupID)
 	}
 
 	opt := &gitlab.ListGroupAccessTokensOptions{
@@ -478,9 +470,8 @@ func (c *Client) listTokensForGroup(
 		},
 	}
 
-	var state gitlab.AccessTokenState
 	if !includeInactive {
-		state = "active"
+		state := gitlab.AccessTokenStateActive
 		opt.State = &state
 	}
 
@@ -504,7 +495,7 @@ func (c *Client) listTokensForGroup(
 		}
 
 		if c.debug {
-			fmt.Printf("DEBUG: fetched %d group access tokens for group %d\n", len(tokens), groupID)
+			fmt.Printf("DEBUG: fetched %d group access tokens for group %s\n", len(tokens), groupID)
 		}
 
 		if resp.NextPage == 0 {
@@ -521,7 +512,7 @@ func (c *Client) listTokensForGroup(
 	return allTokens, nil
 }
 
-func (c *Client) fetchSubgroups(parentID int, groups *[]*gitlab.Group, mu *sync.Mutex, wg *sync.WaitGroup) {
+func (c *Client) fetchSubgroups(parentID string, groups *[]*gitlab.Group, mu *sync.Mutex, wg *sync.WaitGroup) {
 	opt := &gitlab.ListSubGroupsOptions{
 		ListOptions: gitlab.ListOptions{
 			PerPage: maxPageSize,
@@ -533,7 +524,7 @@ func (c *Client) fetchSubgroups(parentID int, groups *[]*gitlab.Group, mu *sync.
 		subgroups, resp, err := c.client.Groups.ListSubGroups(parentID, opt)
 		if err != nil {
 			if c.debug {
-				fmt.Printf("DEBUG: error fetching subgroups for group %d: %v\n", parentID, err)
+				fmt.Printf("DEBUG: error fetching subgroups for group %s: %v\n", parentID, err)
 			}
 
 			return
@@ -544,13 +535,13 @@ func (c *Client) fetchSubgroups(parentID int, groups *[]*gitlab.Group, mu *sync.
 		mu.Unlock()
 
 		if c.debug {
-			fmt.Printf("DEBUG: fetched %d subgroups for group %d\n", len(subgroups), parentID)
+			fmt.Printf("DEBUG: fetched %d subgroups for group %s\n", len(subgroups), parentID)
 		}
 
 		for _, subgroup := range subgroups {
 			wg.Add(1)
 
-			subgroupID := subgroup.ID
+			subgroupID := strconv.Itoa(subgroup.ID)
 
 			c.pool.Submit(func() {
 				defer wg.Done()
@@ -566,7 +557,7 @@ func (c *Client) fetchSubgroups(parentID int, groups *[]*gitlab.Group, mu *sync.
 	}
 }
 
-func (c *Client) fetchProjectsForGroupWithDedupe(groupID int) ([]*gitlab.Project, error) {
+func (c *Client) fetchProjectsForGroupWithDedupe(groupID string) ([]*gitlab.Project, error) {
 	opt := &gitlab.ListGroupProjectsOptions{
 		ListOptions: gitlab.ListOptions{
 			PerPage: maxPageSize,
@@ -580,16 +571,16 @@ func (c *Client) fetchProjectsForGroupWithDedupe(groupID int) ([]*gitlab.Project
 		groupProjects, resp, err := c.client.Groups.ListGroupProjects(groupID, opt)
 		if err != nil {
 			if c.debug {
-				fmt.Printf("DEBUG: error fetching projects for group %d: %v\n", groupID, err)
+				fmt.Printf("DEBUG: error fetching projects for group %s: %v\n", groupID, err)
 			}
 
-			return allProjects, fmt.Errorf("failed to fetch projects for group %d: %w", groupID, err)
+			return allProjects, fmt.Errorf("failed to fetch projects for group %s: %w", groupID, err)
 		}
 
 		allProjects = append(allProjects, groupProjects...)
 
 		if c.debug {
-			fmt.Printf("DEBUG: fetched %d projects for group %d\n", len(groupProjects), groupID)
+			fmt.Printf("DEBUG: fetched %d projects for group %s\n", len(groupProjects), groupID)
 		}
 
 		if resp.NextPage == 0 {
@@ -603,7 +594,7 @@ func (c *Client) fetchProjectsForGroupWithDedupe(groupID int) ([]*gitlab.Project
 }
 
 func (c *Client) fetchTokensForGroup(
-	groupID int,
+	groupID string,
 	group *gitlab.Group,
 	includeInactive bool,
 	tokens *[]*GroupAccessTokenWithGroup,
@@ -612,7 +603,7 @@ func (c *Client) fetchTokensForGroup(
 	groupTokens, err := c.listTokensForGroup(groupID, group, includeInactive)
 	if err != nil {
 		if c.debug {
-			fmt.Printf("DEBUG: error fetching tokens for group %d: %v\n", groupID, err)
+			fmt.Printf("DEBUG: error fetching tokens for group %s: %v\n", groupID, err)
 		}
 
 		return
@@ -624,7 +615,7 @@ func (c *Client) fetchTokensForGroup(
 }
 
 func (c *Client) listTokensForProject(
-	projectID int,
+	projectID string,
 	project *gitlab.Project,
 	includeInactive bool,
 ) ([]*ProjectAccessTokenWithProject, error) {
@@ -638,7 +629,7 @@ func (c *Client) listTokensForProject(
 	}
 
 	if !includeInactive {
-		state := "active"
+		state := string(gitlab.AccessTokenStateActive)
 		opt.State = &state
 	}
 
@@ -666,7 +657,7 @@ func (c *Client) listTokensForProject(
 		}
 
 		if c.debug {
-			fmt.Printf("DEBUG: fetched %d project access tokens for project %d\n", len(tokens), projectID)
+			fmt.Printf("DEBUG: fetched %d project access tokens for project %s\n", len(tokens), projectID)
 		}
 
 		if resp.NextPage == 0 {
@@ -680,7 +671,7 @@ func (c *Client) listTokensForProject(
 }
 
 func (c *Client) fetchTokensForProject(
-	projectID int,
+	projectID string,
 	project *gitlab.Project,
 	includeInactive bool,
 	tokens *[]*ProjectAccessTokenWithProject,
@@ -689,7 +680,7 @@ func (c *Client) fetchTokensForProject(
 	projectTokens, err := c.listTokensForProject(projectID, project, includeInactive)
 	if err != nil {
 		if c.debug {
-			fmt.Printf("DEBUG: error fetching tokens for project %d: %v\n", projectID, err)
+			fmt.Printf("DEBUG: error fetching tokens for project %s: %v\n", projectID, err)
 		}
 
 		return
@@ -701,7 +692,7 @@ func (c *Client) fetchTokensForProject(
 }
 
 func (c *Client) listTriggersForProject(
-	projectID int,
+	projectID string,
 	project *gitlab.Project,
 ) ([]*PipelineTriggerWithProject, error) {
 	var allTriggers []*PipelineTriggerWithProject
@@ -730,7 +721,7 @@ func (c *Client) listTriggersForProject(
 		}
 
 		if c.debug {
-			fmt.Printf("DEBUG: fetched %d pipeline trigger tokens for project %d\n", len(triggers), projectID)
+			fmt.Printf("DEBUG: fetched %d pipeline trigger tokens for project %s\n", len(triggers), projectID)
 		}
 
 		if resp.NextPage == 0 {
@@ -744,7 +735,7 @@ func (c *Client) listTriggersForProject(
 }
 
 func (c *Client) fetchTriggersForProject(
-	projectID int,
+	projectID string,
 	project *gitlab.Project,
 	triggers *[]*PipelineTriggerWithProject,
 	mu *sync.Mutex,
@@ -752,7 +743,7 @@ func (c *Client) fetchTriggersForProject(
 	projectTriggers, err := c.listTriggersForProject(projectID, project)
 	if err != nil {
 		if c.debug {
-			fmt.Printf("DEBUG: error fetching trigger tokens for project %d: %v\n", projectID, err)
+			fmt.Printf("DEBUG: error fetching trigger tokens for project %s: %v\n", projectID, err)
 		}
 
 		return
@@ -764,7 +755,7 @@ func (c *Client) fetchTriggersForProject(
 }
 
 func (c *Client) listVariablesForProject(
-	projectID int,
+	projectID string,
 	project *gitlab.Project,
 ) ([]*ProjectVariableWithProject, error) {
 	var allVariables []*ProjectVariableWithProject
@@ -793,7 +784,7 @@ func (c *Client) listVariablesForProject(
 		}
 
 		if c.debug {
-			fmt.Printf("DEBUG: fetched %d project variables for project %d\n", len(variables), projectID)
+			fmt.Printf("DEBUG: fetched %d project variables for project %s\n", len(variables), projectID)
 		}
 
 		if resp.NextPage == 0 {
@@ -807,7 +798,7 @@ func (c *Client) listVariablesForProject(
 }
 
 func (c *Client) fetchVariablesForProject(
-	projectID int,
+	projectID string,
 	project *gitlab.Project,
 	variables *[]*ProjectVariableWithProject,
 	mu *sync.Mutex,
@@ -815,7 +806,7 @@ func (c *Client) fetchVariablesForProject(
 	projectVariables, err := c.listVariablesForProject(projectID, project)
 	if err != nil {
 		if c.debug {
-			fmt.Printf("DEBUG: error fetching variables for project %d: %v\n", projectID, err)
+			fmt.Printf("DEBUG: error fetching variables for project %s: %v\n", projectID, err)
 		}
 
 		return

@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"strconv"
+	"strings"
 	"time"
 
 	"github.com/andreygrechin/glreporter/internal/glclient"
@@ -18,18 +18,25 @@ var VariablesCmd = &cobra.Command{
 - Specify a group ID to fetch variables from all projects in that group recursively
 - Specify a project ID to fetch variables from a single project
 - Specify neither to fetch variables from all accessible groups`,
+	PersistentPreRun: func(_ *cobra.Command, _ []string) {
+		groupID = strings.Trim(groupID, "/")
+		variablesProjectID = strings.Trim(variablesProjectID, "/")
+	},
 	RunE: runVariables,
 }
 
 var variablesProjectID string
 
 func init() {
-	VariablesCmd.PersistentFlags().IntVar(&groupID, "group-id", 0,
-		"The ID of the GitLab group to fetch variables from recursively "+
+	VariablesCmd.PersistentFlags().StringVar(&groupID, "group-id", "",
+		"The ID or path of the GitLab group to fetch variables from recursively. "+
+			"Can be a numeric ID or a path with namespace (org/subgroup). "+
 			"(optional, fetches from all accessible groups if neither group-id nor project-id is provided)")
 	VariablesCmd.PersistentFlags().StringVar(&variablesProjectID, "project-id", "",
-		"The ID of the GitLab project to fetch variables from")
+		"The ID or path of the GitLab project to fetch variables from. "+
+			"Can be a numeric ID or a path with namespace (org/subgroup/project).")
 
+	VariablesCmd.MarkFlagsMutuallyExclusive("group-id", "project-id")
 	RootCmd.AddCommand(VariablesCmd)
 }
 
@@ -74,7 +81,7 @@ func runVariables(_ *cobra.Command, _ []string) error {
 }
 
 func validateVariablesParameters() error {
-	if groupID != 0 && variablesProjectID != "" {
+	if groupID != "" && variablesProjectID != "" {
 		return ErrBothGroupIDAndProjectIDProvided
 	}
 
@@ -89,12 +96,7 @@ func fetchVariables(client *glclient.Client) ([]*glclient.ProjectVariableWithPro
 
 	if variablesProjectID != "" {
 		// Single project
-		pid, err := strconv.Atoi(variablesProjectID)
-		if err != nil {
-			return nil, fmt.Errorf("invalid project ID: %w", err)
-		}
-
-		variables, err = client.GetProjectVariables(pid)
+		variables, err = client.GetProjectVariables(variablesProjectID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch variables: %w", err)
 		}
