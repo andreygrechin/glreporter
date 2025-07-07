@@ -104,9 +104,29 @@ glreporter tokens ptt --project-id <project-id>
 ### Command-Specific Flags
 
 ```shell
---group-id <group-id>         # GitLab group ID (optional, fetches info from all accessible groups if not provided)
---project-id <project-id>     # GitLab project ID (alternative to group-id for project-specific commands)
+--group-id <group-id>         # GitLab group ID or path with namespace (optional, fetches info from all accessible groups if not provided)
+--project-id <project-id>     # GitLab project ID or path with namespace (alternative to group-id for project-specific commands)
 --include-inactive            # Include inactive tokens in output (token commands only)
+```
+
+### Group and Project ID Formats
+
+The `--group-id` and `--project-id` flags accept multiple formats:
+
+- **Numeric ID**: `12345678` (traditional numeric identifier)
+- **Path with namespace**: `org/subgroup` or `org/subgroup/project` (GitLab namespace path)
+
+**Examples:**
+
+```shell
+# Using numeric ID
+glreporter groups --group-id 12345678
+
+# Using namespace path
+glreporter groups --group-id gitlab-org/gitlab
+
+# Project examples
+glreporter tokens pat --project-id org/project-name
 ```
 
 **Note**: For token commands, use either `--group-id` (to fetch from all projects in a group) or `--project-id` (to fetch from a specific project), but not both. If neither is provided, the command will fetch tokens from all accessible groups or projects.

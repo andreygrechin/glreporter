@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"time"
 
 	"github.com/andreygrechin/glreporter/internal/glclient"
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -27,8 +28,10 @@ const (
 	// FormatCSV represents CSV output format.
 	FormatCSV Format = "csv"
 
-	defaultExpiresAtText string = "Never"
-	defaultLastUsedText  string = "Never"
+	defaultExpiresAtText   string = "Never"
+	defaultLastUsedText    string = "Never"
+	defaultTextPlaceholder string = "N/A"
+	defaultTimeFormat      string = "2006-01-02 15:04:05Z"
 )
 
 type Formatter interface {
@@ -93,7 +96,7 @@ func (f *TableFormatter) FormatGroupAccessTokens(tokens []*glclient.GroupAccessT
 	for _, token := range tokens {
 		expiresAt := defaultExpiresAtText
 		if token.ExpiresAt != nil {
-			expiresAt = token.ExpiresAt.String()
+			expiresAt = time.Time(*token.ExpiresAt).UTC().Format(defaultTimeFormat)
 		}
 
 		groupURL := token.GroupWebURL + "/-/settings/access_tokens"
@@ -115,7 +118,7 @@ func (f *TableFormatter) FormatProjectAccessTokens(tokens []*glclient.ProjectAcc
 	for _, token := range tokens {
 		expiresAt := defaultExpiresAtText
 		if token.ExpiresAt != nil {
-			expiresAt = token.ExpiresAt.String()
+			expiresAt = time.Time(*token.ExpiresAt).UTC().Format(defaultTimeFormat)
 		}
 
 		projectURL := token.ProjectWebURL + "/-/settings/access_tokens"
@@ -132,28 +135,23 @@ func (f *TableFormatter) FormatProjectAccessTokens(tokens []*glclient.ProjectAcc
 func (f *TableFormatter) FormatPipelineTriggers(triggers []*glclient.PipelineTriggerWithProject) error {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
-	t.AppendHeader(table.Row{"Project Path", "Description", "Owner", "Created At", "Last Used"})
+	t.AppendHeader(table.Row{"Project Path", "Description", "Owner", "Last Used"})
 
 	for _, trigger := range triggers {
-		owner := "N/A"
+		owner := defaultTextPlaceholder
 		if trigger.Owner != nil {
 			owner = trigger.Owner.Username
 		}
 
 		lastUsed := defaultLastUsedText
 		if trigger.LastUsed != nil {
-			lastUsed = trigger.LastUsed.String()
-		}
-
-		createdAt := "N/A"
-		if trigger.CreatedAt != nil {
-			createdAt = trigger.CreatedAt.String()
+			lastUsed = trigger.LastUsed.UTC().Format(defaultTimeFormat)
 		}
 
 		projectURL := trigger.ProjectWebURL + "/-/settings/ci_cd#js-pipeline-triggers"
 		projectPathLink := text.Hyperlink(projectURL, trigger.ProjectPath)
 
-		t.AppendRow(table.Row{projectPathLink, trigger.Description, owner, createdAt, lastUsed})
+		t.AppendRow(table.Row{projectPathLink, trigger.Description, owner, lastUsed})
 	}
 
 	t.Render()

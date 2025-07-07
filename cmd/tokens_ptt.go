@@ -22,6 +22,7 @@ var pttCmd = &cobra.Command{
 }
 
 func init() {
+	pttCmd.MarkFlagsMutuallyExclusive("group-id", "project-id")
 }
 
 func runPTT(_ *cobra.Command, _ []string) error {
@@ -64,13 +65,13 @@ func runPTT(_ *cobra.Command, _ []string) error {
 }
 
 func fetchTriggers(client *glclient.Client) ([]*glclient.PipelineTriggerWithProject, error) {
-	if groupID != 0 && projectID != 0 {
+	if groupID != "" && projectID != "" {
 		return nil, ErrBothGroupIDAndProjectIDProvided
 	}
 
 	// If neither is specified, fetch from all accessible groups
-	if groupID == 0 && projectID == 0 {
-		triggers, err := client.GetPipelineTriggersRecursively(0)
+	if groupID == "" && projectID == "" {
+		triggers, err := client.GetPipelineTriggersRecursively("")
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch pipeline triggers from all groups: %w", err)
 		}
@@ -78,7 +79,7 @@ func fetchTriggers(client *glclient.Client) ([]*glclient.PipelineTriggerWithProj
 		return triggers, nil
 	}
 
-	if groupID != 0 {
+	if groupID != "" {
 		triggers, err := client.GetPipelineTriggersRecursively(groupID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch pipeline triggers: %w", err)

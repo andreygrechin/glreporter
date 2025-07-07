@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	includeInactive bool
-	fetchAll        bool
+	includeInactiveGAT bool
+	fetchAll           bool
 )
 
 var gatCmd = &cobra.Command{
@@ -24,7 +24,7 @@ var gatCmd = &cobra.Command{
 }
 
 func init() {
-	gatCmd.Flags().BoolVar(&includeInactive, "include-inactive", false, "Include inactive tokens in the output")
+	gatCmd.Flags().BoolVar(&includeInactiveGAT, "include-inactive", false, "Include inactive tokens in the output")
 	gatCmd.Flags().BoolVar(&fetchAll, "all", true, "Fetch tokens from all subgroups")
 }
 
@@ -45,9 +45,9 @@ func runGAT(_ *cobra.Command, _ []string) error {
 
 	var tokens []*glclient.GroupAccessTokenWithGroup
 	if fetchAll {
-		tokens, err = client.GetGroupAccessTokensRecursively(groupID, includeInactive)
+		tokens, err = client.GetGroupAccessTokensRecursively(groupID, includeInactiveGAT)
 	} else {
-		tokens, err = client.GetGroupAccessTokens(groupID, includeInactive)
+		tokens, err = client.GetGroupAccessTokens(groupID, includeInactiveGAT)
 	}
 
 	s.Stop()
