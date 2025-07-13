@@ -32,6 +32,7 @@ const (
 	defaultLastUsedText    string = "Never"
 	defaultTextPlaceholder string = "N/A"
 	defaultTimeFormat      string = "2006-01-02 15:04:05Z"
+	excludedFieldName      string = "value"
 )
 
 type Formatter interface {
@@ -40,9 +41,9 @@ type Formatter interface {
 	FormatGroupAccessTokens(tokens []*glclient.GroupAccessTokenWithGroup) error
 	FormatProjectAccessTokens(tokens []*glclient.ProjectAccessTokenWithProject) error
 	FormatPipelineTriggers(triggers []*glclient.PipelineTriggerWithProject) error
-	FormatProjectVariables(variables []*glclient.ProjectVariableWithProject) error
-	FormatGroupVariables(variables []*glclient.GroupVariableWithGroup) error
-	FormatUnifiedVariables(variables []*glclient.VariableWithSource) error
+	FormatProjectVariables(variables []*glclient.ProjectVariableWithProject, includeValues bool) error
+	FormatGroupVariables(variables []*glclient.GroupVariableWithGroup, includeValues bool) error
+	FormatUnifiedVariables(variables []*glclient.VariableWithSource, includeValues bool) error
 }
 
 func NewFormatter(format Format) (Formatter, error) {
@@ -161,7 +162,7 @@ func (f *TableFormatter) FormatPipelineTriggers(triggers []*glclient.PipelineTri
 	return nil
 }
 
-func (f *TableFormatter) FormatProjectVariables(variables []*glclient.ProjectVariableWithProject) error {
+func (f *TableFormatter) FormatProjectVariables(variables []*glclient.ProjectVariableWithProject, _ bool) error {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
 	t.AppendHeader(table.Row{"Project Path", "Key", "Type", "Protected", "Masked", "Environment"})
@@ -185,7 +186,7 @@ func (f *TableFormatter) FormatProjectVariables(variables []*glclient.ProjectVar
 	return nil
 }
 
-func (f *TableFormatter) FormatGroupVariables(variables []*glclient.GroupVariableWithGroup) error {
+func (f *TableFormatter) FormatGroupVariables(variables []*glclient.GroupVariableWithGroup, _ bool) error {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
 	t.AppendHeader(table.Row{"Group Path", "Key", "Type", "Protected", "Masked", "Environment"})
@@ -209,7 +210,7 @@ func (f *TableFormatter) FormatGroupVariables(variables []*glclient.GroupVariabl
 	return nil
 }
 
-func (f *TableFormatter) FormatUnifiedVariables(variables []*glclient.VariableWithSource) error {
+func (f *TableFormatter) FormatUnifiedVariables(variables []*glclient.VariableWithSource, _ bool) error {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
 	t.AppendHeader(table.Row{"Source", "Path", "Key", "Type", "Protected", "Masked", "Environment"})
@@ -296,34 +297,122 @@ func (f *JSONFormatter) FormatPipelineTriggers(triggers []*glclient.PipelineTrig
 	return nil
 }
 
-func (f *JSONFormatter) FormatProjectVariables(variables []*glclient.ProjectVariableWithProject) error {
+func (f *JSONFormatter) FormatProjectVariables(
+	variables []*glclient.ProjectVariableWithProject,
+	includeValues bool,
+) error {
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
 
-	if err := encoder.Encode(variables); err != nil {
-		return fmt.Errorf("failed to encode project variables as JSON: %w", err)
+	if includeValues {
+		if err := encoder.Encode(variables); err != nil {
+			return fmt.Errorf("failed to encode project variables as JSON: %w", err)
+		}
+	} else {
+		// Convert to filtered structs without Value field
+		filtered := filterProjectVariables(variables)
+		if err := encoder.Encode(filtered); err != nil {
+			return fmt.Errorf("failed to encode project variables as JSON: %w", err)
+		}
 	}
 
 	return nil
 }
 
-func (f *JSONFormatter) FormatGroupVariables(variables []*glclient.GroupVariableWithGroup) error {
+func filterProjectVariables(variables []*glclient.ProjectVariableWithProject) any {
+	filtered := make([]*glclient.ProjectVariableWithProjectFiltered, len(variables))
+	for i, v := range variables {
+		filtered[i] = &glclient.ProjectVariableWithProjectFiltered{
+			Key:              v.Key,
+			VariableType:     v.VariableType,
+			Protected:        v.Protected,
+			Masked:           v.Masked,
+			Hidden:           v.Hidden,
+			Raw:              v.Raw,
+			EnvironmentScope: v.EnvironmentScope,
+			Description:      v.Description,
+			ProjectName:      v.ProjectName,
+			ProjectPath:      v.ProjectPath,
+			ProjectNamespace: v.ProjectNamespace,
+			ProjectWebURL:    v.ProjectWebURL,
+		}
+	}
+
+	return filtered
+}
+
+func (f *JSONFormatter) FormatGroupVariables(variables []*glclient.GroupVariableWithGroup, includeValues bool) error {
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
 
-	if err := encoder.Encode(variables); err != nil {
-		return fmt.Errorf("failed to encode group variables as JSON: %w", err)
+	if includeValues {
+		if err := encoder.Encode(variables); err != nil {
+			return fmt.Errorf("failed to encode group variables as JSON: %w", err)
+		}
+	} else {
+		// Convert to filtered structs without Value field
+		filtered := filterGroupVariables(variables)
+		if err := encoder.Encode(filtered); err != nil {
+			return fmt.Errorf("failed to encode group variables as JSON: %w", err)
+		}
 	}
 
 	return nil
 }
 
-func (f *JSONFormatter) FormatUnifiedVariables(variables []*glclient.VariableWithSource) error {
+func filterGroupVariables(variables []*glclient.GroupVariableWithGroup) any {
+	filtered := make([]*glclient.GroupVariableWithGroupFiltered, len(variables))
+	for i, v := range variables {
+		filtered[i] = &glclient.GroupVariableWithGroupFiltered{
+			Key:              v.Key,
+			VariableType:     v.VariableType,
+			Protected:        v.Protected,
+			Masked:           v.Masked,
+			Hidden:           v.Hidden,
+			Raw:              v.Raw,
+			EnvironmentScope: v.EnvironmentScope,
+			Description:      v.Description,
+			GroupName:        v.GroupName,
+			GroupPath:        v.GroupPath,
+			GroupWebURL:      v.GroupWebURL,
+			GroupFullPath:    v.GroupFullPath,
+		}
+	}
+
+	return filtered
+}
+
+func (f *JSONFormatter) FormatUnifiedVariables(variables []*glclient.VariableWithSource, includeValues bool) error {
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
 
-	if err := encoder.Encode(variables); err != nil {
-		return fmt.Errorf("failed to encode unified variables as JSON: %w", err)
+	if includeValues {
+		if err := encoder.Encode(variables); err != nil {
+			return fmt.Errorf("failed to encode unified variables as JSON: %w", err)
+		}
+	} else {
+		// Convert to filtered structs without Value field
+		filtered := make([]*glclient.VariableWithSourceFiltered, len(variables))
+		for i, v := range variables {
+			filtered[i] = &glclient.VariableWithSourceFiltered{
+				Key:              v.Key,
+				VariableType:     v.VariableType,
+				Protected:        v.Protected,
+				Masked:           v.Masked,
+				Hidden:           v.Hidden,
+				Raw:              v.Raw,
+				EnvironmentScope: v.EnvironmentScope,
+				Description:      v.Description,
+				Source:           v.Source,
+				SourceName:       v.SourceName,
+				SourcePath:       v.SourcePath,
+				SourceWebURL:     v.SourceWebURL,
+				SourceNamespace:  v.SourceNamespace,
+			}
+		}
+		if err := encoder.Encode(filtered); err != nil {
+			return fmt.Errorf("failed to encode unified variables as JSON: %w", err)
+		}
 	}
 
 	return nil
@@ -423,7 +512,9 @@ func (f *CSVFormatter) FormatProjectAccessTokens(tokens []*glclient.ProjectAcces
 	return nil
 }
 
-func (f *CSVFormatter) FormatProjectVariables(variables []*glclient.ProjectVariableWithProject) error {
+func (f *CSVFormatter) FormatProjectVariables(
+	variables []*glclient.ProjectVariableWithProject, includeValues bool,
+) error {
 	if len(variables) == 0 {
 		return nil
 	}
@@ -431,13 +522,13 @@ func (f *CSVFormatter) FormatProjectVariables(variables []*glclient.ProjectVaria
 	writer := csv.NewWriter(os.Stdout)
 	defer writer.Flush()
 
-	headers := getCSVHeaders(variables[0])
+	headers := getCSVHeaders(variables[0], includeValues)
 	if err := writer.Write(headers); err != nil {
 		return fmt.Errorf("failed to write CSV headers: %w", err)
 	}
 
 	for _, variable := range variables {
-		row := getCSVRow(variable)
+		row := getCSVRow(variable, includeValues)
 		if err := writer.Write(row); err != nil {
 			return fmt.Errorf("failed to write CSV row: %w", err)
 		}
@@ -446,7 +537,7 @@ func (f *CSVFormatter) FormatProjectVariables(variables []*glclient.ProjectVaria
 	return nil
 }
 
-func (f *CSVFormatter) FormatGroupVariables(variables []*glclient.GroupVariableWithGroup) error {
+func (f *CSVFormatter) FormatGroupVariables(variables []*glclient.GroupVariableWithGroup, includeValues bool) error {
 	if len(variables) == 0 {
 		return nil
 	}
@@ -454,13 +545,13 @@ func (f *CSVFormatter) FormatGroupVariables(variables []*glclient.GroupVariableW
 	writer := csv.NewWriter(os.Stdout)
 	defer writer.Flush()
 
-	headers := getCSVHeaders(variables[0])
+	headers := getCSVHeaders(variables[0], includeValues)
 	if err := writer.Write(headers); err != nil {
 		return fmt.Errorf("failed to write CSV headers: %w", err)
 	}
 
 	for _, variable := range variables {
-		row := getCSVRow(variable)
+		row := getCSVRow(variable, includeValues)
 		if err := writer.Write(row); err != nil {
 			return fmt.Errorf("failed to write CSV row: %w", err)
 		}
@@ -469,7 +560,7 @@ func (f *CSVFormatter) FormatGroupVariables(variables []*glclient.GroupVariableW
 	return nil
 }
 
-func (f *CSVFormatter) FormatUnifiedVariables(variables []*glclient.VariableWithSource) error {
+func (f *CSVFormatter) FormatUnifiedVariables(variables []*glclient.VariableWithSource, includeValues bool) error {
 	if len(variables) == 0 {
 		return nil
 	}
@@ -477,13 +568,13 @@ func (f *CSVFormatter) FormatUnifiedVariables(variables []*glclient.VariableWith
 	writer := csv.NewWriter(os.Stdout)
 	defer writer.Flush()
 
-	headers := getCSVHeaders(variables[0])
+	headers := getCSVHeaders(variables[0], includeValues)
 	if err := writer.Write(headers); err != nil {
 		return fmt.Errorf("failed to write CSV headers: %w", err)
 	}
 
 	for _, variable := range variables {
-		row := getCSVRow(variable)
+		row := getCSVRow(variable, includeValues)
 		if err := writer.Write(row); err != nil {
 			return fmt.Errorf("failed to write CSV row: %w", err)
 		}
@@ -492,41 +583,48 @@ func (f *CSVFormatter) FormatUnifiedVariables(variables []*glclient.VariableWith
 	return nil
 }
 
-func getCSVHeaders(v interface{}) []string {
+func getCSVHeaders(v interface{}, includeValues ...bool) []string {
 	var headers []string
+	skipValue := len(includeValues) > 0 && !includeValues[0]
 
 	val := reflect.ValueOf(v).Elem()
 	typ := val.Type()
 
 	for i := range typ.NumField() {
 		field := typ.Field(i)
-
-		switch {
-		case field.Anonymous && field.Type.Kind() == reflect.Ptr:
-			// Create a zero value of the embedded type to extract headers
-			embeddedType := field.Type.Elem()
-			embeddedVal := reflect.New(embeddedType)
-			embeddedHeaders := getCSVHeaders(embeddedVal.Interface())
-			headers = append(headers, embeddedHeaders...)
-		case field.Anonymous && field.Type.Kind() == reflect.Struct:
-			// Handle non-pointer embedded structs
-			embeddedVal := reflect.New(field.Type)
-			embeddedHeaders := getCSVHeaders(embeddedVal.Interface())
-			headers = append(headers, embeddedHeaders...)
-		default:
-			// Regular field
-			jsonTag := field.Tag.Get("json")
-			if jsonTag != "" && jsonTag != "-" {
-				headers = append(headers, jsonTag)
+		if field.Anonymous {
+			if field.Type.Kind() == reflect.Ptr {
+				// Create a zero value of the embedded type to extract headers
+				embeddedType := field.Type.Elem()
+				embeddedVal := reflect.New(embeddedType)
+				embeddedHeaders := getCSVHeaders(embeddedVal.Interface(), includeValues...)
+				headers = append(headers, embeddedHeaders...)
 			}
+			if field.Type.Kind() == reflect.Struct {
+				// Handle non-pointer embedded structs
+				embeddedVal := reflect.New(field.Type)
+				embeddedHeaders := getCSVHeaders(embeddedVal.Interface(), includeValues...)
+				headers = append(headers, embeddedHeaders...)
+			}
+
+			continue
+		}
+		jsonTag := field.Tag.Get("json")
+		if jsonTag != "" && jsonTag != "-" {
+			// Skip value field if includeValues is false
+			if skipValue && jsonTag == excludedFieldName {
+				continue
+			}
+			headers = append(headers, jsonTag)
 		}
 	}
 
 	return headers
 }
 
-func getCSVRow(v interface{}) []string {
+func getCSVRow(v interface{}, includeValues ...bool) []string {
 	var row []string
+	skipValue := len(includeValues) > 0 && !includeValues[0]
 
 	val := reflect.ValueOf(v).Elem()
 	typ := val.Type()
@@ -534,35 +632,42 @@ func getCSVRow(v interface{}) []string {
 	for i := range typ.NumField() {
 		field := typ.Field(i)
 		fieldValue := val.Field(i)
-
-		switch {
-		case field.Anonymous && field.Type.Kind() == reflect.Ptr:
-			row = append(row, getEmbeddedCSVRow(fieldValue)...)
-		case field.Anonymous && field.Type.Kind() == reflect.Struct:
-			row = append(row, getEmbeddedCSVRow(fieldValue.Addr())...)
-		default:
-			// Regular field
-			jsonTag := field.Tag.Get("json")
-			if jsonTag != "" && jsonTag != "-" {
-				row = append(row, fmt.Sprintf("%v", fieldValue.Interface()))
+		if field.Anonymous {
+			if field.Type.Kind() == reflect.Ptr {
+				// getEmbeddedCSVRow handles nil pointers correctly
+				row = append(row, getEmbeddedCSVRow(fieldValue, includeValues...)...)
 			}
+			if field.Type.Kind() == reflect.Struct {
+				row = append(row, getEmbeddedCSVRow(fieldValue.Addr(), includeValues...)...)
+			}
+
+			continue
+		}
+		// Regular field
+		jsonTag := field.Tag.Get("json")
+		if jsonTag != "" && jsonTag != "-" {
+			// Skip value field if includeValues is false
+			if skipValue && jsonTag == excludedFieldName {
+				continue
+			}
+			row = append(row, fmt.Sprintf("%v", fieldValue.Interface()))
 		}
 	}
 
 	return row
 }
 
-func getEmbeddedCSVRow(fieldValue reflect.Value) []string {
+func getEmbeddedCSVRow(fieldValue reflect.Value, includeValues ...bool) []string {
 	var row []string
 
 	if !fieldValue.IsNil() {
-		embeddedRow := getCSVRow(fieldValue.Interface())
+		embeddedRow := getCSVRow(fieldValue.Interface(), includeValues...)
 		row = append(row, embeddedRow...)
 	} else {
 		// Count the number of fields in the embedded struct to add empty values
 		embeddedType := fieldValue.Type().Elem()
 		embeddedVal := reflect.New(embeddedType)
-		embeddedHeaders := getCSVHeaders(embeddedVal.Interface())
+		embeddedHeaders := getCSVHeaders(embeddedVal.Interface(), includeValues...)
 
 		for range embeddedHeaders {
 			row = append(row, "")

@@ -73,7 +73,7 @@ func TestFormatProjectVariables(t *testing.T) {
 		old := captureStdout(t)
 		defer restoreStdout(old)
 
-		err = formatter.FormatProjectVariables(testVariables)
+		err = formatter.FormatProjectVariables(testVariables, true)
 		assert.NoError(t, err)
 	})
 
@@ -85,7 +85,7 @@ func TestFormatProjectVariables(t *testing.T) {
 		old := captureStdout(t)
 		defer restoreStdout(old)
 
-		err = formatter.FormatProjectVariables(testVariables)
+		err = formatter.FormatProjectVariables(testVariables, true)
 		assert.NoError(t, err)
 	})
 
@@ -97,7 +97,7 @@ func TestFormatProjectVariables(t *testing.T) {
 		old := captureStdout(t)
 		defer restoreStdout(old)
 
-		err = formatter.FormatProjectVariables(testVariables)
+		err = formatter.FormatProjectVariables(testVariables, true)
 		assert.NoError(t, err)
 	})
 
@@ -105,7 +105,7 @@ func TestFormatProjectVariables(t *testing.T) {
 		formatter, err := output.NewFormatter(output.FormatTable)
 		require.NoError(t, err)
 
-		err = formatter.FormatProjectVariables([]*glclient.ProjectVariableWithProject{})
+		err = formatter.FormatProjectVariables([]*glclient.ProjectVariableWithProject{}, true)
 		assert.NoError(t, err)
 	})
 }
@@ -123,4 +123,29 @@ func captureStdout(t *testing.T) *os.File {
 
 func restoreStdout(old *os.File) {
 	os.Stdout = old
+}
+
+func TestCSVFormatterHandlesNilEmbeddedStructs(t *testing.T) {
+	// Test case where embedded pointer struct might be nil
+	testVariables := []*glclient.ProjectVariableWithProject{
+		{
+			// ProjectVariable is nil - this tests the nil embedded struct handling
+			ProjectVariable:  nil,
+			ProjectName:      "test-project",
+			ProjectPath:      "test/project",
+			ProjectNamespace: "test",
+			ProjectWebURL:    "https://gitlab.com/test/project",
+		},
+	}
+
+	formatter, err := output.NewFormatter(output.FormatCSV)
+	require.NoError(t, err)
+
+	// Capture stdout
+	old := captureStdout(t)
+	defer restoreStdout(old)
+
+	// This should not panic even with nil embedded struct
+	err = formatter.FormatProjectVariables(testVariables, true)
+	assert.NoError(t, err)
 }

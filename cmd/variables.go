@@ -32,6 +32,9 @@ Can be a numeric ID or a path with namespace (org/subgroup).`)
 		`The ID or path of a GitLab project to fetch tokens for.
 Can be a numeric ID or a path with namespace (org/subgroup/project).`)
 
+	variablesCmd.PersistentFlags().BoolVar(&includeValues, "include-values", false,
+		"Include variable values in output (excluded by default for security)")
+
 	variablesCmd.MarkFlagsMutuallyExclusive("group-id", "project-id")
 
 	variablesAllCmd.SetHelpFunc(func(command *cobra.Command, strings []string) {
