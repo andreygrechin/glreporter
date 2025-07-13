@@ -14,7 +14,7 @@ var variablesAllCmd = &cobra.Command{
 	Use:   "all",
 	Short: "Fetch both project and group CI/CD variables",
 	Long: `Fetch both project-level and group-level CI/CD variables from GitLab. You can:
-- Specify a group ID to fetch project and group variables staring from that group recursively
+- Specify a group ID to fetch project and group variables starting from that group recursively
 - Leave blank to fetch all accessible variables`,
 	RunE: runVariablesAll,
 }
