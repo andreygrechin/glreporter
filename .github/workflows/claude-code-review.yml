@@ -4,14 +4,16 @@ on:
   pull_request:
     types: [opened, synchronize]
     # Optional: Only run on specific file changes
-    # paths:
-    #   - "src/**/*.ts"
-    #   - "src/**/*.tsx"
-    #   - "src/**/*.js"
-    #   - "src/**/*.jsx"
+    paths:
+      - "cmd/**/*.go"
+      - "internal/**/*.go"
+      - "pkg/**/*.go"
+      - "main.go"
+      - "workflows/**/*.yml"
 
 jobs:
   claude-review:
+    timeout-minutes: 15
     # Optional: Filter by PR author
     # if: |
     #   github.event.pull_request.user.login == 'external-contributor' ||
