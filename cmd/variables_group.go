@@ -70,7 +70,7 @@ func runVariablesGroup(_ *cobra.Command, _ []string) error {
 	s.Stop()
 
 	// Format variables
-	if err := formatter.FormatGroupVariables(variables); err != nil {
+	if err := formatter.FormatGroupVariables(variables, includeValues); err != nil {
 		return fmt.Errorf("failed to format variables: %w", err)
 	}
 

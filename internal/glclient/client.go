@@ -72,6 +72,55 @@ type VariableWithSource struct {
 	SourceNamespace  string `json:"source_namespace,omitempty"` // only for projects
 }
 
+// ProjectVariableWithProjectFiltered represents a project variable without the Value field for security.
+type ProjectVariableWithProjectFiltered struct {
+	Key              string                   `json:"key"`
+	VariableType     gitlab.VariableTypeValue `json:"variable_type"`
+	Protected        bool                     `json:"protected"`
+	Masked           bool                     `json:"masked"`
+	Hidden           bool                     `json:"hidden"`
+	Raw              bool                     `json:"raw"`
+	EnvironmentScope string                   `json:"environment_scope"`
+	Description      string                   `json:"description"`
+	ProjectName      string                   `json:"project_name"`
+	ProjectPath      string                   `json:"project_path"`
+	ProjectNamespace string                   `json:"project_namespace"`
+	ProjectWebURL    string                   `json:"project_web_url"`
+}
+
+// GroupVariableWithGroupFiltered represents a group variable without the Value field for security.
+type GroupVariableWithGroupFiltered struct {
+	Key              string                   `json:"key"`
+	VariableType     gitlab.VariableTypeValue `json:"variable_type"`
+	Protected        bool                     `json:"protected"`
+	Masked           bool                     `json:"masked"`
+	Hidden           bool                     `json:"hidden"`
+	Raw              bool                     `json:"raw"`
+	EnvironmentScope string                   `json:"environment_scope"`
+	Description      string                   `json:"description"`
+	GroupName        string                   `json:"group_name"`
+	GroupPath        string                   `json:"group_path"`
+	GroupWebURL      string                   `json:"group_web_url"`
+	GroupFullPath    string                   `json:"group_full_path"`
+}
+
+// VariableWithSourceFiltered represents a variable without the Value field for security.
+type VariableWithSourceFiltered struct {
+	Key              string `json:"key"`
+	VariableType     string `json:"variable_type"`
+	Protected        bool   `json:"protected"`
+	Masked           bool   `json:"masked"`
+	Hidden           bool   `json:"hidden"`
+	Raw              bool   `json:"raw"`
+	EnvironmentScope string `json:"environment_scope"`
+	Description      string `json:"description"`
+	Source           string `json:"source"` // "project" or "group"
+	SourceName       string `json:"source_name"`
+	SourcePath       string `json:"source_path"`
+	SourceWebURL     string `json:"source_web_url"`
+	SourceNamespace  string `json:"source_namespace,omitempty"` // only for projects
+}
+
 // ConvertProjectVariableToUnified converts a ProjectVariableWithProject to VariableWithSource.
 func ConvertProjectVariableToUnified(pv *ProjectVariableWithProject) *VariableWithSource {
 	return &VariableWithSource{

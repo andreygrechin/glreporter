@@ -73,7 +73,7 @@ func TestFormatProjectVariables(t *testing.T) {
 		old := captureStdout(t)
 		defer restoreStdout(old)
 
-		err = formatter.FormatProjectVariables(testVariables)
+		err = formatter.FormatProjectVariables(testVariables, true)
 		assert.NoError(t, err)
 	})
 
@@ -85,7 +85,7 @@ func TestFormatProjectVariables(t *testing.T) {
 		old := captureStdout(t)
 		defer restoreStdout(old)
 
-		err = formatter.FormatProjectVariables(testVariables)
+		err = formatter.FormatProjectVariables(testVariables, true)
 		assert.NoError(t, err)
 	})
 
@@ -97,7 +97,7 @@ func TestFormatProjectVariables(t *testing.T) {
 		old := captureStdout(t)
 		defer restoreStdout(old)
 
-		err = formatter.FormatProjectVariables(testVariables)
+		err = formatter.FormatProjectVariables(testVariables, true)
 		assert.NoError(t, err)
 	})
 
@@ -105,7 +105,7 @@ func TestFormatProjectVariables(t *testing.T) {
 		formatter, err := output.NewFormatter(output.FormatTable)
 		require.NoError(t, err)
 
-		err = formatter.FormatProjectVariables([]*glclient.ProjectVariableWithProject{})
+		err = formatter.FormatProjectVariables([]*glclient.ProjectVariableWithProject{}, true)
 		assert.NoError(t, err)
 	})
 }

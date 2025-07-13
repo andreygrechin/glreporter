@@ -122,7 +122,7 @@ func formatAllVariables(
 		return nil
 	}
 
-	if err := formatter.FormatUnifiedVariables(allVariables); err != nil {
+	if err := formatter.FormatUnifiedVariables(allVariables, includeValues); err != nil {
 		return fmt.Errorf("failed to format variables: %w", err)
 	}
 

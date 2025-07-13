@@ -13,11 +13,12 @@ import (
 )
 
 var (
-	groupID   string
-	projectID string
-	format    string
-	token     string
-	debug     bool
+	groupID       string
+	projectID     string
+	format        string
+	token         string
+	debug         bool
+	includeValues bool
 )
 
 var (
