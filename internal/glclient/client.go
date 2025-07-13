@@ -45,6 +45,14 @@ type ProjectVariableWithProject struct {
 	ProjectWebURL    string `json:"project_web_url"`
 }
 
+// GroupVariableWithGroup represents a group variable with associated group information.
+type GroupVariableWithGroup struct {
+	*gitlab.GroupVariable
+	GroupName   string `json:"group_name"`
+	GroupPath   string `json:"group_path"`
+	GroupWebURL string `json:"group_web_url"`
+}
+
 // Client is a wrapper around the GitLab API client that includes a worker pool for concurrent operations.
 type Client struct {
 	client *gitlab.Client
@@ -454,6 +462,44 @@ func (c *Client) GetProjectVariablesRecursively(groupID string) ([]*ProjectVaria
 	return allVariables, nil
 }
 
+// GetGroupVariables fetches all CI/CD variables for a specific group.
+func (c *Client) GetGroupVariables(groupID string) ([]*GroupVariableWithGroup, error) {
+	if c.debug {
+		fmt.Printf("DEBUG: fetching group variables for group %s\n", groupID)
+	}
+
+	groups, err := c.GetGroupsRecursively(groupID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get groups: %w", err)
+	}
+
+	var (
+		allVariables []*GroupVariableWithGroup
+		mu           sync.Mutex
+		wg           sync.WaitGroup
+	)
+
+	for _, group := range groups {
+		wg.Add(1)
+
+		groupID := strconv.Itoa(group.ID)
+		groupCopy := group
+
+		c.pool.Submit(func() {
+			defer wg.Done()
+			c.fetchVariablesForGroup(groupID, groupCopy, &allVariables, &mu)
+		})
+	}
+
+	wg.Wait()
+
+	if c.debug {
+		fmt.Printf("DEBUG: completed group variables fetch, found %d variables\n", len(allVariables))
+	}
+
+	return allVariables, nil
+}
+
 func (c *Client) listTokensForGroup(
 	groupID string,
 	group *gitlab.Group,
@@ -814,5 +860,66 @@ func (c *Client) fetchVariablesForProject(
 
 	mu.Lock()
 	*variables = append(*variables, projectVariables...)
+	mu.Unlock()
+}
+
+func (c *Client) listVariablesForGroup(
+	groupID string,
+	group *gitlab.Group,
+) ([]*GroupVariableWithGroup, error) {
+	var allVariables []*GroupVariableWithGroup
+
+	opt := &gitlab.ListGroupVariablesOptions{
+		PerPage: maxPageSize,
+		Page:    1,
+	}
+
+	for {
+		variables, resp, err := c.client.GroupVariables.ListVariables(groupID, opt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list group variables: %w", err)
+		}
+
+		for _, variable := range variables {
+			variableWithGroup := &GroupVariableWithGroup{
+				GroupVariable: variable,
+				GroupName:     group.Name,
+				GroupPath:     group.FullPath,
+				GroupWebURL:   group.WebURL,
+			}
+			allVariables = append(allVariables, variableWithGroup)
+		}
+
+		if c.debug {
+			fmt.Printf("DEBUG: fetched %d group variables for group %s\n", len(variables), groupID)
+		}
+
+		if resp.NextPage == 0 {
+			break
+		}
+
+		opt.Page = resp.NextPage
+	}
+
+	return allVariables, nil
+}
+
+func (c *Client) fetchVariablesForGroup(
+	groupID string,
+	group *gitlab.Group,
+	variables *[]*GroupVariableWithGroup,
+	mu *sync.Mutex,
+) {
+	groupVariables, err := c.listVariablesForGroup(groupID, group)
+	if err != nil {
+		if c.debug {
+			fmt.Printf("DEBUG: error fetching variables for group %s: %v\n", groupID, err)
+		}
+
+		return
+	}
+
+	mu.Lock()
+	*variables = append(*variables, groupVariables...)
 	mu.Unlock()
 }
