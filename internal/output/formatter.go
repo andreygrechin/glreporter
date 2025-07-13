@@ -41,6 +41,8 @@ type Formatter interface {
 	FormatProjectAccessTokens(tokens []*glclient.ProjectAccessTokenWithProject) error
 	FormatPipelineTriggers(triggers []*glclient.PipelineTriggerWithProject) error
 	FormatProjectVariables(variables []*glclient.ProjectVariableWithProject) error
+	FormatGroupVariables(variables []*glclient.GroupVariableWithGroup) error
+	FormatUnifiedVariables(variables []*glclient.VariableWithSource) error
 }
 
 func NewFormatter(format Format) (Formatter, error) {
@@ -183,6 +185,60 @@ func (f *TableFormatter) FormatProjectVariables(variables []*glclient.ProjectVar
 	return nil
 }
 
+func (f *TableFormatter) FormatGroupVariables(variables []*glclient.GroupVariableWithGroup) error {
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.AppendHeader(table.Row{"Group Path", "Key", "Type", "Protected", "Masked", "Environment"})
+
+	for _, variable := range variables {
+		groupURL := variable.GroupWebURL + "/-/settings/ci_cd#ci-variables"
+		groupPathLink := text.Hyperlink(groupURL, variable.GroupFullPath)
+
+		t.AppendRow(table.Row{
+			groupPathLink,
+			variable.Key,
+			variable.VariableType,
+			variable.Protected,
+			variable.Masked,
+			variable.EnvironmentScope,
+		})
+	}
+
+	t.Render()
+
+	return nil
+}
+
+func (f *TableFormatter) FormatUnifiedVariables(variables []*glclient.VariableWithSource) error {
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.AppendHeader(table.Row{"Source", "Path", "Key", "Type", "Protected", "Masked", "Environment"})
+
+	for _, variable := range variables {
+		var url string
+		if variable.Source == "project" {
+			url = variable.SourceWebURL + "/-/settings/ci_cd#js-cicd-variables-settings"
+		} else {
+			url = variable.SourceWebURL + "/-/settings/ci_cd#ci-variables"
+		}
+		pathLink := text.Hyperlink(url, variable.SourcePath)
+
+		t.AppendRow(table.Row{
+			variable.Source,
+			pathLink,
+			variable.Key,
+			variable.VariableType,
+			variable.Protected,
+			variable.Masked,
+			variable.EnvironmentScope,
+		})
+	}
+
+	t.Render()
+
+	return nil
+}
+
 type JSONFormatter struct{}
 
 func (f *JSONFormatter) FormatGroups(groups []*gitlab.Group) error {
@@ -246,6 +302,28 @@ func (f *JSONFormatter) FormatProjectVariables(variables []*glclient.ProjectVari
 
 	if err := encoder.Encode(variables); err != nil {
 		return fmt.Errorf("failed to encode project variables as JSON: %w", err)
+	}
+
+	return nil
+}
+
+func (f *JSONFormatter) FormatGroupVariables(variables []*glclient.GroupVariableWithGroup) error {
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent("", "  ")
+
+	if err := encoder.Encode(variables); err != nil {
+		return fmt.Errorf("failed to encode group variables as JSON: %w", err)
+	}
+
+	return nil
+}
+
+func (f *JSONFormatter) FormatUnifiedVariables(variables []*glclient.VariableWithSource) error {
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent("", "  ")
+
+	if err := encoder.Encode(variables); err != nil {
+		return fmt.Errorf("failed to encode unified variables as JSON: %w", err)
 	}
 
 	return nil
@@ -346,6 +424,52 @@ func (f *CSVFormatter) FormatProjectAccessTokens(tokens []*glclient.ProjectAcces
 }
 
 func (f *CSVFormatter) FormatProjectVariables(variables []*glclient.ProjectVariableWithProject) error {
+	if len(variables) == 0 {
+		return nil
+	}
+
+	writer := csv.NewWriter(os.Stdout)
+	defer writer.Flush()
+
+	headers := getCSVHeaders(variables[0])
+	if err := writer.Write(headers); err != nil {
+		return fmt.Errorf("failed to write CSV headers: %w", err)
+	}
+
+	for _, variable := range variables {
+		row := getCSVRow(variable)
+		if err := writer.Write(row); err != nil {
+			return fmt.Errorf("failed to write CSV row: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (f *CSVFormatter) FormatGroupVariables(variables []*glclient.GroupVariableWithGroup) error {
+	if len(variables) == 0 {
+		return nil
+	}
+
+	writer := csv.NewWriter(os.Stdout)
+	defer writer.Flush()
+
+	headers := getCSVHeaders(variables[0])
+	if err := writer.Write(headers); err != nil {
+		return fmt.Errorf("failed to write CSV headers: %w", err)
+	}
+
+	for _, variable := range variables {
+		row := getCSVRow(variable)
+		if err := writer.Write(row); err != nil {
+			return fmt.Errorf("failed to write CSV row: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (f *CSVFormatter) FormatUnifiedVariables(variables []*glclient.VariableWithSource) error {
 	if len(variables) == 0 {
 		return nil
 	}
