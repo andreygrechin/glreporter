@@ -592,29 +592,30 @@ func getCSVHeaders(v interface{}, includeValues ...bool) []string {
 
 	for i := range typ.NumField() {
 		field := typ.Field(i)
-
-		switch {
-		case field.Anonymous && field.Type.Kind() == reflect.Ptr:
-			// Create a zero value of the embedded type to extract headers
-			embeddedType := field.Type.Elem()
-			embeddedVal := reflect.New(embeddedType)
-			embeddedHeaders := getCSVHeaders(embeddedVal.Interface(), includeValues...)
-			headers = append(headers, embeddedHeaders...)
-		case field.Anonymous && field.Type.Kind() == reflect.Struct:
-			// Handle non-pointer embedded structs
-			embeddedVal := reflect.New(field.Type)
-			embeddedHeaders := getCSVHeaders(embeddedVal.Interface(), includeValues...)
-			headers = append(headers, embeddedHeaders...)
-		default:
-			// Regular field
-			jsonTag := field.Tag.Get("json")
-			if jsonTag != "" && jsonTag != "-" {
-				// Skip value field if includeValues is false
-				if skipValue && jsonTag == excludedFieldName {
-					continue
-				}
-				headers = append(headers, jsonTag)
+		if field.Anonymous {
+			if field.Type.Kind() == reflect.Ptr {
+				// Create a zero value of the embedded type to extract headers
+				embeddedType := field.Type.Elem()
+				embeddedVal := reflect.New(embeddedType)
+				embeddedHeaders := getCSVHeaders(embeddedVal.Interface(), includeValues...)
+				headers = append(headers, embeddedHeaders...)
 			}
+			if field.Type.Kind() == reflect.Struct {
+				// Handle non-pointer embedded structs
+				embeddedVal := reflect.New(field.Type)
+				embeddedHeaders := getCSVHeaders(embeddedVal.Interface(), includeValues...)
+				headers = append(headers, embeddedHeaders...)
+			}
+
+			continue
+		}
+		jsonTag := field.Tag.Get("json")
+		if jsonTag != "" && jsonTag != "-" {
+			// Skip value field if includeValues is false
+			if skipValue && jsonTag == excludedFieldName {
+				continue
+			}
+			headers = append(headers, jsonTag)
 		}
 	}
 
@@ -631,22 +632,25 @@ func getCSVRow(v interface{}, includeValues ...bool) []string {
 	for i := range typ.NumField() {
 		field := typ.Field(i)
 		fieldValue := val.Field(i)
-
-		switch {
-		case field.Anonymous && field.Type.Kind() == reflect.Ptr:
-			row = append(row, getEmbeddedCSVRow(fieldValue, includeValues...)...)
-		case field.Anonymous && field.Type.Kind() == reflect.Struct:
-			row = append(row, getEmbeddedCSVRow(fieldValue.Addr(), includeValues...)...)
-		default:
-			// Regular field
-			jsonTag := field.Tag.Get("json")
-			if jsonTag != "" && jsonTag != "-" {
-				// Skip value field if includeValues is false
-				if skipValue && jsonTag == excludedFieldName {
-					continue
-				}
-				row = append(row, fmt.Sprintf("%v", fieldValue.Interface()))
+		if field.Anonymous {
+			if field.Type.Kind() == reflect.Ptr {
+				// getEmbeddedCSVRow handles nil pointers correctly
+				row = append(row, getEmbeddedCSVRow(fieldValue, includeValues...)...)
 			}
+			if field.Type.Kind() == reflect.Struct {
+				row = append(row, getEmbeddedCSVRow(fieldValue.Addr(), includeValues...)...)
+			}
+
+			continue
+		}
+		// Regular field
+		jsonTag := field.Tag.Get("json")
+		if jsonTag != "" && jsonTag != "-" {
+			// Skip value field if includeValues is false
+			if skipValue && jsonTag == excludedFieldName {
+				continue
+			}
+			row = append(row, fmt.Sprintf("%v", fieldValue.Interface()))
 		}
 	}
 
