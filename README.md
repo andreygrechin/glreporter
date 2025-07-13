@@ -7,6 +7,8 @@ glreporter is the CLI tool to fetch information from GitLab groups and projects.
 ## Features
 
 - Collect information about GitLab groups and their projects.
+- Fetch CI/CD variables from projects and groups.
+- Manage access tokens (group, project, and pipeline trigger tokens).
 - Filter by group ID and project status.
 - Output in a JSON, table, or CSV format.
 
@@ -93,6 +95,37 @@ glreporter tokens ptt --group-id <group-id>
 glreporter tokens ptt --project-id <project-id>
 ```
 
+### Variable Management
+
+```shell
+# Fetch all variables (both project and group CI/CD variables)
+glreporter variables all
+
+# Fetch all variables from a specific group recursively
+glreporter variables all --group-id <group-id>
+
+# Fetch all variables for a specific project
+glreporter variables all --project-id <project-id>
+
+# Fetch only group variables from all accessible groups
+glreporter variables group
+
+# Fetch group variables from a specific group recursively
+glreporter variables group --group-id <group-id>
+
+# Fetch only project variables from all accessible groups
+glreporter variables project
+
+# Fetch project variables from a specific group recursively
+glreporter variables project --group-id <group-id>
+
+# Fetch project variables for a specific project
+glreporter variables project --project-id <project-id>
+
+# Include variable values in output (excluded by default for security)
+glreporter variables all --include-values
+```
+
 ### Global Flags
 
 ```shell
@@ -107,6 +140,7 @@ glreporter tokens ptt --project-id <project-id>
 --group-id <group-id>         # GitLab group ID or path with namespace (optional, fetches info from all accessible groups if not provided)
 --project-id <project-id>     # GitLab project ID or path with namespace (alternative to group-id for project-specific commands)
 --include-inactive            # Include inactive tokens in output (token commands only)
+--include-values              # Include variable values in output (variable commands only, excluded by default for security)
 ```
 
 ### Group and Project ID Formats

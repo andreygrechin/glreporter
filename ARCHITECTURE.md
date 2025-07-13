@@ -112,6 +112,7 @@ Every operation that might take time accepts a context. This enables cancellatio
 - `cmd/groups.go`: The command for fetching groups.
 - `cmd/projects.go`: The command for fetching projects.
 - `cmd/tokens.go`: The command for fetching tokens.
+- `cmd/variables.go`: The command for fetching CI/CD variables.
 
 **How it works:** Each command defines its own `RunE` function, which calls the `runReportCommand` helper to fetch and format data.
 
@@ -155,6 +156,15 @@ Every operation that might take time accepts a context. This enables cancellatio
 4. `GetGroupsRecursively` in `internal/glclient/client.go` fetches the root group and then recursively fetches all subgroups using the worker pool.
 5. Once all groups are fetched, the data is passed to the `formatter.FormatGroups` function in `internal/output/formatter.go`.
 6. The formatter displays the groups in the specified format (e.g., a table).
+
+### Fetching Variables
+
+1. The user runs `glreporter variables all --group-id <group-id>`.
+2. The `variablesAllCmd` in `cmd/variables_all.go` is executed.
+3. It creates a GitLab client and calls `fetchAllVariables`, which uses both `client.GetProjectVariablesRecursively` and `client.GetGroupVariablesRecursively`.
+4. The client fetches variables from all projects and groups within the specified scope using concurrent workers.
+5. The data is unified and passed to `formatAllVariables`, which calls `formatter.FormatUnifiedVariables`.
+6. The formatter displays the variables in the specified format, optionally including values if `--include-values` is specified.
 
 ## Testing
 
@@ -204,9 +214,16 @@ func TestMyFeature(t *testing.T) {
 
 ```text
 glreporter/
-├── cmd/newscope/        # Contains CLI commands (root, groups, projects, tokens) using spf13/cobra
+├── cmd/                 # Contains CLI commands using spf13/cobra
+│   ├── root.go          # Root command and common functionality
+│   ├── groups.go        # Groups command
+│   ├── projects.go      # Projects command
+│   ├── tokens.go        # Token commands (gat, pat, ptt)
+│   ├── tokens_*.go      # Individual token command implementations
+│   ├── variables.go     # Variables command
+│   └── variables_*.go   # Individual variable command implementations
 ├── internal/            # Internal packages
-│   ├── gclient/         # GitLab API client with concurrent fetching capabilities (uses gitlab.com/gitlab-org/api/client-go)
+│   ├── glclient/        # GitLab API client with concurrent fetching capabilities
 │   ├── output/          # Formatters for table, JSON, and CSV output
 │   └── worker/          # Worker pool implementation for managing concurrent operations
 └── main.go              # Entry point with version information injection
