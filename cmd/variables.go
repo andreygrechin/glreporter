@@ -2,119 +2,49 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strings"
-	"time"
 
-	"github.com/andreygrechin/glreporter/internal/glclient"
-	"github.com/andreygrechin/glreporter/internal/output"
-	"github.com/briandowns/spinner"
 	"github.com/spf13/cobra"
 )
 
-var VariablesCmd = &cobra.Command{
+var variablesCmd = &cobra.Command{
 	Use:   "variables",
-	Short: "Fetches and displays CI/CD variables",
-	Long: `Fetches and displays CI/CD variables from GitLab projects. You can:
-- Specify a group ID to fetch variables from all projects in that group recursively
-- Specify a project ID to fetch variables from a single project
-- Specify neither to fetch variables from all accessible groups`,
+	Short: "Manage CI/CD variables",
+	Long:  "Manage CI/CD variables from GitLab projects and groups.",
 	PersistentPreRun: func(_ *cobra.Command, _ []string) {
+		projectID = strings.Trim(projectID, "/")
 		groupID = strings.Trim(groupID, "/")
-		variablesProjectID = strings.Trim(variablesProjectID, "/")
 	},
-	RunE: runVariables,
 }
-
-var variablesProjectID string
 
 func init() {
-	VariablesCmd.PersistentFlags().StringVar(&groupID, "group-id", "",
-		"The ID or path of the GitLab group to fetch variables from recursively. "+
-			"Can be a numeric ID or a path with namespace (org/subgroup). "+
-			"(optional, fetches from all accessible groups if neither group-id nor project-id is provided)")
-	VariablesCmd.PersistentFlags().StringVar(&variablesProjectID, "project-id", "",
-		"The ID or path of the GitLab project to fetch variables from. "+
-			"Can be a numeric ID or a path with namespace (org/subgroup/project).")
+	RootCmd.AddCommand(variablesCmd)
+	variablesCmd.AddCommand(variablesAllCmd)
+	variablesCmd.AddCommand(variablesGroupCmd)
+	variablesCmd.AddCommand(variablesProjectCmd)
 
-	VariablesCmd.MarkFlagsMutuallyExclusive("group-id", "project-id")
-	RootCmd.AddCommand(VariablesCmd)
-}
+	variablesCmd.PersistentFlags().StringVar(&groupID, "group-id", "",
+		`The ID or path of a GitLab group to start the search from.
+Can be a numeric ID or a path with namespace (org/subgroup).`)
 
-func runVariables(_ *cobra.Command, _ []string) error {
-	// Validate parameters
-	if err := validateVariablesParameters(); err != nil {
-		return err
-	}
+	variablesCmd.PersistentFlags().StringVar(&projectID, "project-id", "",
+		`The ID or path of a GitLab project to fetch tokens for.
+Can be a numeric ID or a path with namespace (org/subgroup/project).`)
 
-	// Check for token
-	tokenValue := getToken()
-	if tokenValue == "" {
-		return ErrGitLabTokenRequired
-	}
+	variablesCmd.MarkFlagsMutuallyExclusive("group-id", "project-id")
 
-	// Create client
-	client, err := glclient.NewClient(tokenValue, debug)
-	if err != nil {
-		return fmt.Errorf("failed to create GitLab client: %w", err)
-	}
-
-	// Create formatter
-	formatter, err := output.NewFormatter(output.Format(format))
-	if err != nil {
-		return fmt.Errorf("failed to create formatter: %w", err)
-	}
-
-	s := spinner.New(spinner.CharSets[spinnerCharSet], spinnerDelay*time.Millisecond)
-	s.Suffix = " Fetching variables..."
-	s.Start()
-
-	variables, err := fetchVariables(client)
-
-	s.Stop()
-
-	if err != nil {
-		return err
-	}
-
-	// Format variables
-	return formatVariables(variables, formatter)
-}
-
-func validateVariablesParameters() error {
-	if groupID != "" && variablesProjectID != "" {
-		return ErrBothGroupIDAndProjectIDProvided
-	}
-
-	return nil
-}
-
-func fetchVariables(client *glclient.Client) ([]*glclient.ProjectVariableWithProject, error) {
-	var (
-		variables []*glclient.ProjectVariableWithProject
-		err       error
-	)
-
-	if variablesProjectID != "" {
-		// Single project
-		variables, err = client.GetProjectVariables(variablesProjectID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch variables: %w", err)
+	variablesAllCmd.SetHelpFunc(func(command *cobra.Command, strings []string) {
+		if err := command.InheritedFlags().MarkHidden("project-id"); err != nil {
+			fmt.Fprint(os.Stderr, err)
 		}
-	} else {
-		// Group recursively
-		variables, err = client.GetProjectVariablesRecursively(groupID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch variables: %w", err)
+		command.Parent().HelpFunc()(command, strings)
+	})
+
+	variablesGroupCmd.SetHelpFunc(func(command *cobra.Command, strings []string) {
+		if err := command.InheritedFlags().MarkHidden("project-id"); err != nil {
+			fmt.Fprint(os.Stderr, err)
 		}
-	}
-
-	return variables, nil
-}
-
-func formatVariables(variables []*glclient.ProjectVariableWithProject, formatter output.Formatter) error {
-	if err := formatter.FormatProjectVariables(variables); err != nil {
-		return fmt.Errorf("failed to format variables: %w", err)
-	}
-
-	return nil
+		command.Parent().HelpFunc()(command, strings)
+	})
 }
